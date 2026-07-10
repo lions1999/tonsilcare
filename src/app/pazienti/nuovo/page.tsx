@@ -11,7 +11,7 @@
 
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Baby, AlertCircle, CalendarDays } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -34,7 +34,7 @@ const FASI: { value: PostOpPhase; label: string; range: string }[] = [
 // Componente
 // ---------------------------------------------------------------------------
 
-export default function NuovoPazientePage() {
+function PazienteForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isPrimo = searchParams.get("primo") === "true";
@@ -256,5 +256,13 @@ export default function NuovoPazientePage() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function NuovoPazientePage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-dvh items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-blue-500" size={32} /></div>}>
+      <PazienteForm />
+    </Suspense>
   );
 }
