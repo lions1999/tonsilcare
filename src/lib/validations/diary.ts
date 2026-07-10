@@ -9,7 +9,7 @@ export const dailyLogSchema = z.object({
   temperatura: z.number({
     required_error: "La temperatura è obbligatoria",
     invalid_type_error: "La temperatura deve essere un numero",
-  })
+  } as any)
     .min(34, "La temperatura minima è 34°C")
     .max(42, "La temperatura massima è 42°C"),
   
