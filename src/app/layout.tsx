@@ -14,7 +14,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import { AuthProvider } from "@/context/AuthContext";
-import { PatientProvider } from "@/context/PatientContext";
+import { UtenteProvider } from "@/context/UtenteContext";
 
 // ---------------------------------------------------------------------------
 // Font — Inter con subset latin
@@ -114,7 +114,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       </head>
       <body className="font-sans bg-slate-950 text-slate-100">
         <AuthProvider>
-          <PatientProvider>
+          <UtenteProvider>
 
         {/*
           Wrapper principale:
@@ -138,7 +138,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
           <BottomNav />
         </div>
 
-          </PatientProvider>
+          </UtenteProvider>
         </AuthProvider>
       </body>
     </html>

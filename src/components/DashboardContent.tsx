@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
-import { usePatient } from "@/context/PatientContext";
+import { useUtente } from "@/context/UtenteContext";
 import { usePhaseConfig } from "@/hooks/usePhaseConfig";
 import { getMedicalAlerts } from "@/lib/firebase/firestore";
 import { useDailyLogs } from "@/hooks/useDailyLogs";
@@ -40,7 +40,7 @@ import type { DailyLog } from "@/lib/validations/diary";
 import EmptyState from "@/components/EmptyState";
 import UserMenu from "@/components/UserMenu";
 
-import type { MedicalAlerts, PatientProfile, PostOpPhaseConfig, Prescrizione } from "@/types";
+import type { MedicalAlerts, UtenteProfile, PostOpPhaseConfig, Prescrizione } from "@/types";
 import { getPrescrizioni } from "@/lib/firebase/firestore";
 
 // ---------------------------------------------------------------------------
@@ -96,19 +96,19 @@ function DashboardSkeleton() {
   );
 }
 
-/** Card Stato Paziente */
-function PatientStatusCard({
-  patient,
+/** Card Stato Utente */
+function UtenteStatusCard({
+  utente,
   phase,
   giornoPostOp,
 }: {
-  patient: PatientProfile;
+  utente: UtenteProfile;
   phase: PostOpPhaseConfig;
   giornoPostOp: number;
 }) {
   return (
     <article
-      aria-label="Stato del paziente"
+      aria-label="Stato dell'utente operato"
       className="relative overflow-hidden rounded-2xl p-5 shadow-xl shadow-blue-950/50 animate-fade-in-up"
       style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 50%, #1e3a8a 100%)" }}
     >
@@ -121,7 +121,7 @@ function PatientStatusCard({
             Stato del Paziente
           </p>
           <h2 className="text-xl font-bold leading-tight text-white">
-            {patient.nome} {patient.cognome}
+            {utente.nome} {utente.cognome}
           </h2>
         </div>
         <div className="flex min-w-[60px] flex-col items-center rounded-xl bg-white/15 px-3 py-2 backdrop-blur-sm">
@@ -341,13 +341,13 @@ function PrescrizioniCard({ prescrizioni }: { prescrizioni: Prescrizione[] }) {
 // ---------------------------------------------------------------------------
 
 export default function DashboardContent() {
-  const { userProfile } = useAuth();
-  const { patients, activePatient, loading: patientsLoading, error: patientsError, refetch: refetchPatients } = usePatient();
+  const { accountProfile } = useAuth();
+  const { utenti, activeUtente, loading: utentiLoading, error: utentiError, refetch: refetchUtenti } = useUtente();
   const { latestLog, loading: logLoading, refetch: refetchLogs } = useDailyLogs();
 
-  // Carica configurazione fase per il paziente attivo
+  // Carica configurazione fase per l'utente attivo
   const { phaseConfig, loading: phaseLoading } = usePhaseConfig(
-    activePatient?.faseAttualeId ?? null
+    activeUtente?.faseAttualeId ?? null
   );
 
   // Carica alert medici da Firestore
@@ -365,29 +365,29 @@ export default function DashboardContent() {
   }, []);
 
   useEffect(() => {
-    if (activePatient) {
-      getPrescrizioni(activePatient.id).then(setPrescrizioni).catch(console.error);
+    if (activeUtente) {
+      getPrescrizioni(activeUtente.id).then(setPrescrizioni).catch(console.error);
     } else {
       setPrescrizioni([]);
     }
-  }, [activePatient?.id]);
+  }, [activeUtente?.id]);
 
   // ---- STATI DI CARICAMENTO ----
-  const isLoading = patientsLoading || (activePatient !== null && (phaseLoading || logLoading));
+  const isLoading = utentiLoading || (activeUtente !== null && (phaseLoading || logLoading));
 
   if (isLoading) {
     return <DashboardSkeleton />;
   }
 
   // ---- STATO DI ERRORE ----
-  if (patientsError) {
+  if (utentiError) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
         <AlertTriangle size={40} className="mb-4 text-amber-400" />
         <h2 className="mb-2 text-lg font-bold text-white">Errore di caricamento</h2>
-        <p className="mb-6 text-sm text-slate-400">{patientsError}</p>
+        <p className="mb-6 text-sm text-slate-400">{utentiError}</p>
         <button
-          onClick={() => { refetchPatients(); refetchLogs(); }}
+          onClick={() => { refetchUtenti(); refetchLogs(); }}
           className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 transition-colors"
         >
           <RefreshCw size={14} />
@@ -397,8 +397,8 @@ export default function DashboardContent() {
     );
   }
 
-  // ---- EMPTY STATE — nessun paziente ----
-  if (patients.length === 0) {
+  // ---- EMPTY STATE — nessun utente ----
+  if (utenti.length === 0) {
     return (
       <div className="min-h-full bg-slate-950">
         <header className="sticky top-0 z-30 border-b border-slate-800/50 bg-slate-950/90 px-4 pb-3 pt-4 backdrop-blur-md">
@@ -406,7 +406,7 @@ export default function DashboardContent() {
             <div>
               <p className="text-xs font-medium text-slate-500">Bentornato,</p>
               <h1 className="text-lg font-bold leading-tight text-white">
-                {userProfile?.nome ?? "Genitore"} 👋
+                {accountProfile?.nome ?? "Genitore"} 👋
               </h1>
             </div>
             <UserMenu />
@@ -418,11 +418,11 @@ export default function DashboardContent() {
   }
 
   // ---- DASHBOARD COMPLETA ----
-  if (!activePatient || !phaseConfig) {
+  if (!activeUtente || !phaseConfig) {
     return <DashboardSkeleton />;
   }
 
-  const giornoPostOp = calcolaGiornoPostOp(activePatient.dataOperazione);
+  const giornoPostOp = calcolaGiornoPostOp(activeUtente.dataOperazione);
 
   return (
     <div className="min-h-full bg-slate-950">
@@ -433,7 +433,7 @@ export default function DashboardContent() {
           <div>
             <p className="text-xs font-medium text-slate-500">Bentornato,</p>
             <h1 className="text-lg font-bold leading-tight text-white">
-              Genitore di {activePatient.nome} 👋
+              Genitore di {activeUtente.nome} 👋
             </h1>
           </div>
           <UserMenu />
@@ -446,9 +446,9 @@ export default function DashboardContent() {
         {/* Banner Alert Medico */}
         <AlertBanner alerts={alerts} />
 
-        {/* Card Stato Paziente */}
-        <PatientStatusCard
-          patient={activePatient}
+        {/* Card Stato Utente */}
+        <UtenteStatusCard
+          utente={activeUtente}
           phase={phaseConfig}
           giornoPostOp={giornoPostOp}
         />

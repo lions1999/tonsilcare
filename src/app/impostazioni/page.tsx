@@ -8,15 +8,15 @@
 import { useRouter } from "next/navigation";
 import { ChevronLeft, LogOut, User, Mail, Users, Settings } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { usePatient } from "@/context/PatientContext";
+import { useUtente } from "@/context/UtenteContext";
 import { auth } from "@/lib/firebase/config";
 import { signOut } from "firebase/auth";
 import PushNotificationManager from "@/components/PushNotificationManager";
 
 export default function ImpostazioniPage() {
   const router = useRouter();
-  const { user, userProfile } = useAuth();
-  const { patients } = usePatient();
+  const { user, accountProfile } = useAuth();
+  const { utenti } = useUtente();
 
   const handleLogout = async () => {
     try {
@@ -50,7 +50,7 @@ export default function ImpostazioniPage() {
         {/* SEZIONE ACCOUNT */}
         <section className="mb-8">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-500">
-            Account Genitore
+            Account
           </h2>
           <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
             <div className="flex items-center gap-4 border-b border-slate-800 p-4">
@@ -60,7 +60,7 @@ export default function ImpostazioniPage() {
               <div>
                 <p className="text-sm font-medium text-slate-400">Nome completo</p>
                 <p className="font-semibold text-white">
-                  {userProfile ? `${userProfile.nome} ${userProfile.cognome}` : (user?.displayName || "Genitore")}
+                  {accountProfile ? `${accountProfile.nome} ${accountProfile.cognome}` : (user?.displayName || "Genitore")}
                 </p>
               </div>
             </div>
@@ -70,36 +70,36 @@ export default function ImpostazioniPage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-400">Indirizzo Email</p>
-                <p className="font-semibold text-white">{userProfile?.email || user?.email || "Non disponibile"}</p>
+                <p className="font-semibold text-white">{accountProfile?.email || user?.email || "Non disponibile"}</p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* SEZIONE PAZIENTI */}
+        {/* SEZIONE UTENTI */}
         <section className="mb-10">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-500">
-            Pazienti Associati
+            Utenti Associati
           </h2>
           <div className="space-y-3">
-            {patients.length > 0 ? (
-              patients.map(patient => (
-                <div key={patient.id} className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+            {utenti.length > 0 ? (
+              utenti.map(utente => (
+                <div key={utente.id} className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-900/30 text-teal-400">
                       <Users size={18} />
                     </div>
                     <div>
-                      <p className="font-semibold text-white">{patient.nome} {patient.cognome}</p>
+                      <p className="font-semibold text-white">{utente.nome} {utente.cognome}</p>
                       <p className="text-xs text-slate-400">
-                        Operato il {new Date(patient.dataOperazione).toLocaleDateString("it-IT")}
+                        Operato il {new Date(utente.dataOperazione).toLocaleDateString("it-IT")}
                       </p>
                     </div>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-slate-500">Nessun paziente associato a questo account.</p>
+              <p className="text-sm text-slate-500">Nessun utente associato a questo account.</p>
             )}
           </div>
         </section>

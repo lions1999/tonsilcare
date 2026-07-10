@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
-import { usePatient } from "@/context/PatientContext";
+import { useUtente } from "@/context/UtenteContext";
 import { addDailyLog, getMedicalAlerts } from "@/lib/firebase/firestore";
 import { dailyLogSchema, type DailyLogFormData } from "@/lib/validations/diary";
 import type { MedicalAlerts } from "@/types";
@@ -28,7 +28,7 @@ import type { MedicalAlerts } from "@/types";
 export default function NuovoLogPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { activePatient } = usePatient();
+  const { activeUtente } = useUtente();
   
   const [alertsConfig, setAlertsConfig] = useState<MedicalAlerts | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,7 +60,7 @@ export default function NuovoLogPage() {
   const watchDolore = watch("dolore");
 
   const processLog = async (data: DailyLogFormData) => {
-    if (!user || !activePatient) return;
+    if (!user || !activeUtente) return;
 
     setIsSubmitting(true);
     
@@ -74,7 +74,7 @@ export default function NuovoLogPage() {
 
     try {
       // Salva prima su db (così non perdiamo il dato clinico)
-      await addDailyLog(activePatient.id, user.uid, data);
+      await addDailyLog(activeUtente.id, user.uid, data);
       
       if (isEmergency) {
         setShowEmergencyModal(true);
@@ -88,7 +88,7 @@ export default function NuovoLogPage() {
     }
   };
 
-  if (!activePatient) {
+  if (!activeUtente) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950">
         <Loader2 className="animate-spin text-blue-500" size={32} />
@@ -112,7 +112,7 @@ export default function NuovoLogPage() {
 
       <main className="px-4 pt-6">
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-white">Come sta {activePatient.nome}?</h2>
+          <h2 className="text-xl font-bold text-white">Come sta {activeUtente.nome}?</h2>
           <p className="text-sm text-slate-400">Registra i parametri vitali di oggi</p>
         </div>
 

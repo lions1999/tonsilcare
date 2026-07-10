@@ -4,7 +4,7 @@
  *
  * Fornisce:
  * - `user`           → utente Firebase Auth corrente (o null)
- * - `userProfile`    → profilo Firestore del genitore
+ * - `accountProfile` → profilo Firestore dell'account (genitore/medico)
  * - `loading`        → true mentre Firebase risolve lo stato auth iniziale
  * - `signOut`        → funzione di logout
  *
@@ -28,7 +28,8 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase/config";
 import { signOut as firebaseSignOut } from "@/lib/firebase/auth";
-import { getUserProfile, type UserProfile } from "@/lib/firebase/firestore";
+import { getAccountProfile } from "@/lib/firebase/firestore";
+import type { AccountProfile } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Tipo del context
@@ -37,8 +38,8 @@ import { getUserProfile, type UserProfile } from "@/lib/firebase/firestore";
 interface AuthContextValue {
   /** Utente Firebase Auth (null = non loggato, undefined = caricamento) */
   user: User | null;
-  /** Profilo genitore da Firestore */
-  userProfile: UserProfile | null;
+  /** Profilo account da Firestore */
+  accountProfile: AccountProfile | null;
   /** True mentre Firebase risolve lo stato di autenticazione iniziale */
   loading: boolean;
   /** Effettua il logout e reindirizza alla pagina di login */
@@ -57,7 +58,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -70,10 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        // Carica il profilo Firestore dell'utente
+        // Carica il profilo Firestore dell'account
         try {
-          const profile = await getUserProfile(firebaseUser.uid);
-          setUserProfile(profile);
+          const profile = await getAccountProfile(firebaseUser.uid);
+          setAccountProfile(profile);
           
           // Imposta il cookie __role per il middleware
           if (profile?.ruolo) {
@@ -81,11 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           console.error("[AuthContext] Errore caricamento profilo:", error);
-          setUserProfile(null);
+          setAccountProfile(null);
           document.cookie = `__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure`;
         }
       } else {
-        setUserProfile(null);
+        setAccountProfile(null);
         // Pulisci il cookie __role se l'utente non è loggato
         document.cookie = `__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure`;
       }
@@ -106,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetch("/api/logout", { method: "POST" });
     // 3. Pulisci lo stato locale e i cookie
     setUser(null);
-    setUserProfile(null);
+    setAccountProfile(null);
     document.cookie = `__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure`;
     // 4. Redirect al login
     router.push("/login");
@@ -117,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        userProfile,
+        accountProfile,
         loading,
         signOut: handleSignOut,
       }}

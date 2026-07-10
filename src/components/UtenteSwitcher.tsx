@@ -1,7 +1,7 @@
 /**
- * @file src/components/PatientSwitcher.tsx
- * @description Selettore paziente nell'header della Dashboard.
- * Legge la lista e il paziente attivo dal PatientContext (dati reali da Firestore).
+ * @file src/components/UtenteSwitcher.tsx
+ * @description Selettore utente nell'header della Dashboard.
+ * Legge la lista e l'utente attivo dall'UtenteContext (dati reali da Firestore).
  */
 
 "use client";
@@ -9,10 +9,10 @@
 import Link from "next/link";
 import { ChevronDown, Baby, PlusCircle } from "lucide-react";
 import { useState } from "react";
-import { usePatient } from "@/context/PatientContext";
+import { useUtente } from "@/context/UtenteContext";
 
-export default function PatientSwitcher() {
-  const { patients, activePatient, setActivePatient, loading } = usePatient();
+export default function UtenteSwitcher() {
+  const { utenti, activeUtente, setActiveUtente, loading } = useUtente();
   const [open, setOpen] = useState(false);
 
   // Durante il caricamento, mostra uno skeleton minimo
@@ -22,16 +22,16 @@ export default function PatientSwitcher() {
     );
   }
 
-  // Se non ci sono pazienti, mostra solo il CTA
-  if (patients.length === 0 || !activePatient) {
+  // Se non ci sono utenti, mostra solo il CTA
+  if (utenti.length === 0 || !activeUtente) {
     return (
       <Link
-        href="/pazienti/nuovo?primo=true"
-        id="btn-aggiungi-primo-paziente"
+        href="/utenti/nuovo?primo=true"
+        id="btn-aggiungi-primo-utente"
         className="flex items-center gap-2 rounded-xl border border-dashed border-slate-600 px-3 py-2 text-sm text-slate-400 transition-colors hover:border-blue-500 hover:text-blue-400"
       >
         <PlusCircle size={15} />
-        Aggiungi paziente
+        Aggiungi utente
       </Link>
     );
   }
@@ -40,8 +40,8 @@ export default function PatientSwitcher() {
     <div className="relative">
       {/* Trigger */}
       <button
-        id="btn-patient-switcher"
-        aria-label="Seleziona paziente"
+        id="btn-utente-switcher"
+        aria-label="Seleziona utente"
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
@@ -51,9 +51,9 @@ export default function PatientSwitcher() {
           <Baby size={14} className="text-blue-400" />
         </div>
         <div className="text-left">
-          <p className="text-[10px] leading-none text-slate-400 mb-0.5">Paziente</p>
+          <p className="text-[10px] leading-none text-slate-400 mb-0.5">Utente</p>
           <p className="text-sm font-semibold leading-none text-white">
-            {activePatient.nome} {activePatient.cognome}
+            {activeUtente.nome} {activeUtente.cognome}
           </p>
         </div>
         <ChevronDown
@@ -72,40 +72,40 @@ export default function PatientSwitcher() {
           />
           <div
             role="listbox"
-            aria-label="Lista pazienti"
+            aria-label="Lista utenti"
             className="absolute left-0 top-full z-50 mt-1 min-w-[220px] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/40"
           >
-            {patients.map((patient) => (
+            {utenti.map((utente) => (
               <button
-                key={patient.id}
+                key={utente.id}
                 role="option"
-                aria-selected={patient.id === activePatient.id}
+                aria-selected={utente.id === activeUtente.id}
                 onClick={() => {
-                  setActivePatient(patient);
+                  setActiveUtente(utente);
                   setOpen(false);
                 }}
                 className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors ${
-                  patient.id === activePatient.id
+                  utente.id === activeUtente.id
                     ? "bg-blue-900/40 text-blue-300"
                     : "text-slate-200 hover:bg-slate-800"
                 }`}
               >
                 <Baby size={14} className="flex-shrink-0 text-slate-400" />
                 <span className="font-medium">
-                  {patient.nome} {patient.cognome}
+                  {utente.nome} {utente.cognome}
                 </span>
               </button>
             ))}
 
             <div className="border-t border-slate-800">
               <Link
-                href="/pazienti/nuovo"
-                id="btn-aggiungi-paziente-dropdown"
+                href="/utenti/nuovo"
+                id="btn-aggiungi-utente-dropdown"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 px-4 py-3 text-sm text-blue-400 transition-colors hover:bg-slate-800"
               >
                 <PlusCircle size={14} />
-                Aggiungi paziente
+                Aggiungi utente
               </Link>
             </div>
           </div>

@@ -37,8 +37,8 @@ export interface SignInData {
 // ---------------------------------------------------------------------------
 
 /**
- * Registra un nuovo genitore con email + password.
- * Crea anche il documento profilo su Firestore in /utenti/{uid}.
+ * Registra un nuovo genitore/medico con email + password.
+ * Crea anche il documento profilo su Firestore in /accounts/{uid}.
  */
 export async function signUp({
   email,
@@ -54,7 +54,7 @@ export async function signUp({
   await updateProfile(user, { displayName: `${nome} ${cognome}` });
 
   // 3. Salva il profilo su Firestore
-  await setDoc(doc(db, "utenti", user.uid), {
+  await setDoc(doc(db, "accounts", user.uid), {
     uid: user.uid,
     email: user.email,
     nome,

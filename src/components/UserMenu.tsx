@@ -12,7 +12,7 @@ import { LogOut, User, ChevronDown, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export default function UserMenu() {
-  const { user, userProfile, signOut } = useAuth();
+  const { user, accountProfile, signOut } = useAuth();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -20,13 +20,13 @@ export default function UserMenu() {
   if (!user) return null;
 
   // Iniziale del nome per l'avatar
-  const iniziale = userProfile?.nome?.[0]?.toUpperCase()
+  const iniziale = accountProfile?.nome?.[0]?.toUpperCase()
     ?? user.displayName?.[0]?.toUpperCase()
     ?? user.email?.[0]?.toUpperCase()
     ?? "G";
 
-  const nomeDisplay = userProfile
-    ? `${userProfile.nome} ${userProfile.cognome}`
+  const nomeDisplay = accountProfile
+    ? `${accountProfile.nome} ${accountProfile.cognome}`
     : user.displayName ?? user.email ?? "Genitore";
 
   const handleLogout = async () => {

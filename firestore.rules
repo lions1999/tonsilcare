@@ -21,22 +21,22 @@ service cloud.firestore {
       return request.auth.uid == uid;
     }
 
-    /** Verifica che l'utente sia il genitore del paziente */
-    function isPatientParent(patientData) {
-      return request.auth.uid == patientData.parenteUid;
+    /** Verifica che l'utente sia l'account che gestisce questo utente operato */
+    function isUtenteAccount(utenteData) {
+      return request.auth.uid == utenteData.accountId;
     }
 
     /** Verifica che l'utente abbia il ruolo di medico */
     function isMedico() {
       return isAuthenticated() && 
-        get(/databases/$(database)/documents/utenti/$(request.auth.uid)).data.ruolo == 'medico';
+        get(/databases/$(database)/documents/accounts/$(request.auth.uid)).data.ruolo == 'medico';
     }
 
     // -------------------------------------------------------------------------
-    // /utenti/{uid} — Profilo genitore
+    // /accounts/{uid} — Profilo genitore o medico
     // -------------------------------------------------------------------------
-    match /utenti/{uid} {
-      // Il genitore può leggere e aggiornare solo il proprio profilo
+    match /accounts/{uid} {
+      // Il proprietario può leggere e aggiornare il proprio profilo
       allow read, update: if isAuthenticated() && isOwner(uid);
       // La creazione avviene durante la registrazione (client)
       allow create: if isAuthenticated() && isOwner(uid);
@@ -45,44 +45,44 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // /pazienti/{patientId} — Profilo paziente
+    // /utenti/{utenteId} — Profilo utente operato
     // -------------------------------------------------------------------------
-    match /pazienti/{patientId} {
-      // Il genitore può leggere i propri, il medico può leggere tutti
-      allow read: if isAuthenticated() && (isPatientParent(resource.data) || isMedico());
-      // Solo il genitore autenticato può creare un paziente con il proprio UID
+    match /utenti/{utenteId} {
+      // L'account proprietario può leggere i propri, il medico può leggere tutti
+      allow read: if isAuthenticated() && (isUtenteAccount(resource.data) || isMedico());
+      // Solo l'account autenticato può creare un utente operato con il proprio UID
       allow create: if isAuthenticated()
-        && request.resource.data.parenteUid == request.auth.uid;
-      // Il genitore può aggiornare solo i propri pazienti
-      allow update: if isAuthenticated() && isPatientParent(resource.data);
-      // La cancellazione richiede che il genitore sia il proprietario
-      allow delete: if isAuthenticated() && isPatientParent(resource.data);
+        && request.resource.data.accountId == request.auth.uid;
+      // L'account può aggiornare solo i propri utenti operati
+      allow update: if isAuthenticated() && isUtenteAccount(resource.data);
+      // La cancellazione richiede che l'account sia il proprietario
+      allow delete: if isAuthenticated() && isUtenteAccount(resource.data);
 
       // -----------------------------------------------------------------------
-      // /pazienti/{patientId}/logs/{logId} — Log del diario (sotto-collezione)
+      // /utenti/{utenteId}/diario/{logId} — Log del diario (sotto-collezione)
       // -----------------------------------------------------------------------
-      match /logs/{logId} {
-        // Solo il genitore del paziente o il medico può leggere i log
+      match /diario/{logId} {
+        // Solo l'account dell'utente operato o il medico può leggere i log
         allow read: if isAuthenticated()
-          && (get(/databases/$(database)/documents/pazienti/$(patientId)).data.parenteUid == request.auth.uid || isMedico());
-        // Solo il genitore può creare log per il proprio paziente
+          && (get(/databases/$(database)/documents/utenti/$(utenteId)).data.accountId == request.auth.uid || isMedico());
+        // Solo l'account può creare log per il proprio utente
         allow create: if isAuthenticated()
-          && get(/databases/$(database)/documents/pazienti/$(patientId)).data.parenteUid == request.auth.uid
+          && get(/databases/$(database)/documents/utenti/$(utenteId)).data.accountId == request.auth.uid
           && request.resource.data.createdByUid == request.auth.uid;
         // Aggiornamento log (es. note aggiuntive)
         allow update: if isAuthenticated()
-          && get(/databases/$(database)/documents/pazienti/$(patientId)).data.parenteUid == request.auth.uid;
+          && get(/databases/$(database)/documents/utenti/$(utenteId)).data.accountId == request.auth.uid;
         // I log non possono essere cancellati (audit trail medico)
         allow delete: if false;
       }
 
       // -----------------------------------------------------------------------
-      // /pazienti/{patientId}/prescrizioni/{prescId} — Prescrizioni mediche
+      // /utenti/{utenteId}/prescrizioni/{prescId} — Prescrizioni mediche
       // -----------------------------------------------------------------------
       match /prescrizioni/{prescId} {
         // Medico e Genitore possono leggere le prescrizioni
         allow read: if isAuthenticated()
-          && (get(/databases/$(database)/documents/pazienti/$(patientId)).data.parenteUid == request.auth.uid || isMedico());
+          && (get(/databases/$(database)/documents/utenti/$(utenteId)).data.accountId == request.auth.uid || isMedico());
         // Solo il medico può creare prescrizioni (con il proprio UID)
         allow create: if isMedico() && request.resource.data.medicoUid == request.auth.uid;
         // Modifica e cancellazione limitate al medico autore

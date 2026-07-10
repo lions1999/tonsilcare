@@ -10,31 +10,31 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, Activity, AlertTriangle, CheckCircle, ChevronRight, LogOut } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getAllPatients, getLatestLog, getMedicalAlerts } from "@/lib/firebase/firestore";
-import type { PatientProfile, MedicalAlerts } from "@/types";
+import { getAllUtenti, getLatestLog, getMedicalAlerts } from "@/lib/firebase/firestore";
+import type { UtenteProfile, MedicalAlerts } from "@/types";
 import type { DailyLog } from "@/lib/validations/diary";
 
-interface PatientWithStatus extends PatientProfile {
+interface UtenteWithStatus extends UtenteProfile {
   latestLog: DailyLog | null;
   hasAlert: boolean;
 }
 
 export default function StudioPage() {
-  const { userProfile, signOut } = useAuth();
-  const [patients, setPatients] = useState<PatientWithStatus[]>([]);
+  const { accountProfile, signOut } = useAuth();
+  const [utenti, setUtenti] = useState<UtenteWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [allPatients, alertsConfig] = await Promise.all([
-          getAllPatients(),
+        const [allUtenti, alertsConfig] = await Promise.all([
+          getAllUtenti(),
           getMedicalAlerts()
         ]);
 
-        const patientsWithLogs = await Promise.all(
-          allPatients.map(async (paziente) => {
-            const latestLog = await getLatestLog(paziente.id);
+        const utentiWithLogs = await Promise.all(
+          allUtenti.map(async (utente) => {
+            const latestLog = await getLatestLog(utente.id);
             
             // Logica Triage (Alert)
             let hasAlert = false;
@@ -51,7 +51,7 @@ export default function StudioPage() {
             }
 
             return {
-              ...paziente,
+              ...utente,
               latestLog,
               hasAlert
             };
@@ -59,13 +59,13 @@ export default function StudioPage() {
         );
 
         // Ordinamento: prima quelli con Alert, poi ordinati per data operazione decrescente
-        patientsWithLogs.sort((a, b) => {
+        utentiWithLogs.sort((a, b) => {
           if (a.hasAlert && !b.hasAlert) return -1;
           if (!a.hasAlert && b.hasAlert) return 1;
           return new Date(b.dataOperazione).getTime() - new Date(a.dataOperazione).getTime();
         });
 
-        setPatients(patientsWithLogs);
+        setUtenti(utentiWithLogs);
       } catch (error) {
         console.error("Errore nel caricamento della Control Room", error);
       } finally {
@@ -88,7 +88,7 @@ export default function StudioPage() {
             <div>
               <h1 className="text-lg font-bold text-white">Control Room</h1>
               <p className="text-xs text-slate-400">
-                Dr. {userProfile?.cognome}
+                Dr. {accountProfile?.cognome}
               </p>
             </div>
           </div>
@@ -102,29 +102,29 @@ export default function StudioPage() {
         </div>
       </header>
 
-      {/* Lista Pazienti */}
+      {/* Lista Utenti */}
       <main className="px-4 py-6">
         <h2 className="text-sm font-medium text-slate-400 mb-4 uppercase tracking-wider">
-          Pazienti in Triage ({patients.length})
+          Utenti in Triage ({utenti.length})
         </h2>
 
         {loading ? (
           <div className="flex h-40 items-center justify-center">
             <Loader2 className="animate-spin text-indigo-500" size={32} />
           </div>
-        ) : patients.length === 0 ? (
+        ) : utenti.length === 0 ? (
           <div className="rounded-2xl border border-slate-800/60 bg-slate-900/50 p-8 text-center">
             <CheckCircle className="mx-auto mb-3 text-green-500/50" size={40} />
-            <p className="text-sm text-slate-400">Nessun paziente trovato.</p>
+            <p className="text-sm text-slate-400">Nessun utente trovato.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {patients.map((paziente) => (
+            {utenti.map((utente) => (
               <Link 
-                key={paziente.id} 
-                href={`/studio/paziente/${paziente.id}`}
+                key={utente.id} 
+                href={`/studio/utente/${utente.id}`}
                 className={`block rounded-2xl border p-4 transition-all hover:scale-[1.02] active:scale-95 ${
-                  paziente.hasAlert 
+                  utente.hasAlert 
                     ? "border-red-900/50 bg-red-950/20" 
                     : "border-slate-800/60 bg-slate-900/40 hover:border-indigo-500/30"
                 }`}
@@ -132,15 +132,15 @@ export default function StudioPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-white text-lg">
-                      {paziente.nome} {paziente.cognome}
+                      {utente.nome} {utente.cognome}
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Operato il {new Date(paziente.dataOperazione).toLocaleDateString("it-IT")}
+                      Operato il {new Date(utente.dataOperazione).toLocaleDateString("it-IT")}
                     </p>
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    {paziente.hasAlert && (
+                    {utente.hasAlert && (
                       <span className="flex items-center gap-1.5 rounded-full bg-red-900/50 px-2.5 py-1 text-xs font-medium text-red-200 border border-red-800/50">
                         <AlertTriangle size={12} />
                         Attenzione
@@ -151,24 +151,24 @@ export default function StudioPage() {
                 </div>
 
                 {/* Ultimo Log Summary */}
-                {paziente.latestLog && (
+                {utente.latestLog && (
                   <div className={`mt-4 rounded-xl px-3 py-2 text-xs border ${
-                    paziente.hasAlert ? "bg-red-950/40 border-red-900/30 text-red-200" : "bg-slate-800/40 border-slate-700/50 text-slate-300"
+                    utente.hasAlert ? "bg-red-950/40 border-red-900/30 text-red-200" : "bg-slate-800/40 border-slate-700/50 text-slate-300"
                   }`}>
                     <div className="flex justify-between items-center mb-1">
                       <span className="opacity-80">Ultimo aggiornamento:</span>
                       <span className="font-medium">
-                        {new Date(paziente.latestLog.createdAt!).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                        {new Date(utente.latestLog.createdAt!).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
                     <div className="flex gap-4 font-medium mt-1">
-                      {paziente.latestLog.temperatura && (
-                        <span>Temp: {paziente.latestLog.temperatura}°C</span>
+                      {utente.latestLog.temperatura && (
+                        <span>Temp: {utente.latestLog.temperatura}°C</span>
                       )}
-                      {paziente.latestLog.dolore !== undefined && (
-                        <span>Dolore: {paziente.latestLog.dolore}/10</span>
+                      {utente.latestLog.dolore !== undefined && (
+                        <span>Dolore: {utente.latestLog.dolore}/10</span>
                       )}
-                      {(paziente.latestLog.sanguinamento || paziente.latestLog.vomito) && (
+                      {(utente.latestLog.sanguinamento || utente.latestLog.vomito) && (
                         <span className="text-red-400">Sintomi critici</span>
                       )}
                     </div>

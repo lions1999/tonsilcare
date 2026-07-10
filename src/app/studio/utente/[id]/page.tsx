@@ -11,17 +11,17 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, ArrowLeft, Send, Activity, Thermometer, AlertCircle, MessageSquare } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getPatient, getPatientLogs, addPrescrizione, getPrescrizioni } from "@/lib/firebase/firestore";
-import type { PatientProfile, Prescrizione } from "@/types";
+import { getUtente, getUtenteLogs, addPrescrizione, getPrescrizioni } from "@/lib/firebase/firestore";
+import type { UtenteProfile, Prescrizione } from "@/types";
 import type { DailyLog } from "@/lib/validations/diary";
 
-export default function PazienteDettaglioMedico() {
+export default function UtenteDettaglioMedico() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { user, userProfile } = useAuth();
+  const { user, accountProfile } = useAuth();
   
   const [loading, setLoading] = useState(true);
-  const [paziente, setPaziente] = useState<PatientProfile | null>(null);
+  const [utente, setUtente] = useState<UtenteProfile | null>(null);
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [prescrizioni, setPrescrizioni] = useState<Prescrizione[]>([]);
 
@@ -35,15 +35,15 @@ export default function PazienteDettaglioMedico() {
       if (!id) return;
       try {
         const [pz, lg, pr] = await Promise.all([
-          getPatient(id),
-          getPatientLogs(id),
+          getUtente(id),
+          getUtenteLogs(id),
           getPrescrizioni(id)
         ]);
-        setPaziente(pz);
+        setUtente(pz);
         setLogs(lg);
         setPrescrizioni(pr);
       } catch (err) {
-        console.error("Errore recupero paziente", err);
+        console.error("Errore recupero utente", err);
       } finally {
         setLoading(false);
       }
@@ -53,21 +53,21 @@ export default function PazienteDettaglioMedico() {
 
   const handleInvioPrescrizione = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!nuovaPrescrizione.trim() || !user || !userProfile || !paziente) return;
+    if (!nuovaPrescrizione.trim() || !user || !accountProfile || !utente) return;
 
     setErrorForm(null);
     setInvioPrescrizione(true);
 
     try {
       await addPrescrizione(
-        paziente.id, 
+        utente.id, 
         user.uid, 
-        `Dr. ${userProfile.cognome}`, 
+        `Dr. ${accountProfile.cognome}`, 
         nuovaPrescrizione.trim()
       );
       setNuovaPrescrizione("");
       // Ricarica prescrizioni
-      const pr = await getPrescrizioni(paziente.id);
+      const pr = await getPrescrizioni(utente.id);
       setPrescrizioni(pr);
     } catch (err) {
       console.error(err);
@@ -85,10 +85,10 @@ export default function PazienteDettaglioMedico() {
     );
   }
 
-  if (!paziente) {
+  if (!utente) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center bg-slate-950 p-6 text-center">
-        <p className="text-slate-400 mb-4">Paziente non trovato.</p>
+        <p className="text-slate-400 mb-4">Utente non trovato.</p>
         <Link href="/studio" className="text-indigo-400 hover:underline">
           &larr; Torna alla Control Room
         </Link>
@@ -107,10 +107,10 @@ export default function PazienteDettaglioMedico() {
           </Link>
           <div>
             <h1 className="text-lg font-bold text-white">
-              {paziente.nome} {paziente.cognome}
+              {utente.nome} {utente.cognome}
             </h1>
             <p className="text-xs text-slate-400">
-              Operato il {new Date(paziente.dataOperazione).toLocaleDateString("it-IT")}
+              Operato il {new Date(utente.dataOperazione).toLocaleDateString("it-IT")}
             </p>
           </div>
         </div>

@@ -8,16 +8,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { getLatestLog } from "@/lib/firebase/firestore";
 import type { DailyLog } from "@/lib/validations/diary";
-import { usePatient } from "@/context/PatientContext";
+import { useUtente } from "@/context/UtenteContext";
 
 export function useDailyLogs() {
-  const { activePatient } = usePatient();
+  const { activeUtente } = useUtente();
   const [latestLog, setLatestLog] = useState<DailyLog | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchLatestLog = useCallback(async () => {
-    if (!activePatient) {
+    if (!activeUtente) {
       setLatestLog(null);
       setLoading(false);
       return;
@@ -26,7 +26,7 @@ export function useDailyLogs() {
     try {
       setLoading(true);
       setError(null);
-      const log = await getLatestLog(activePatient.id);
+      const log = await getLatestLog(activeUtente.id);
       setLatestLog(log);
     } catch (err) {
       console.error("[useDailyLogs] Errore fetch log:", err);
@@ -34,7 +34,7 @@ export function useDailyLogs() {
     } finally {
       setLoading(false);
     }
-  }, [activePatient]);
+  }, [activeUtente]);
 
   useEffect(() => {
     fetchLatestLog();

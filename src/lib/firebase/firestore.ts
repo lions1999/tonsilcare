@@ -3,8 +3,8 @@
  * @description Helper Firestore per le operazioni CRUD sui pazienti.
  *
  * ARCHITETTURA COLLEZIONI:
- * - /utenti/{uid}           → profilo genitore
- * - /pazienti/{patientId}   → profilo paziente (1 genitore → N pazienti)
+ * - /accounts/{uid}         → profilo genitore/medico
+ * - /utenti/{utenteId}      → profilo utente operato (1 account → N utenti)
  * - /fasi/{faseId}          → config fase post-op (read-only, gestita da admin)
  * - /config/alerts          → soglie alert medico (read-only, gestita da admin)
  * - /ricette/{id}           → ricette (read-only, gestita da admin)
@@ -27,32 +27,32 @@ import {
 } from "firebase/firestore";
 import { db } from "./config";
 import type {
-  PatientProfile,
+  UtenteProfile,
   PostOpPhase,
   PostOpPhaseConfig,
   MedicalAlerts,
-  UserProfile,
+  AccountProfile,
   Prescrizione,
 } from "@/types";
 
 // ---------------------------------------------------------------------------
-// Profilo Utente (genitore/medico)
+// Profilo Account (genitore/medico)
 // ---------------------------------------------------------------------------
 
 /**
- * Recupera il profilo utente da Firestore.
+ * Recupera il profilo account da Firestore.
  */
-export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  const snap = await getDoc(doc(db, "utenti", uid));
+export async function getAccountProfile(uid: string): Promise<AccountProfile | null> {
+  const snap = await getDoc(doc(db, "accounts", uid));
   if (!snap.exists()) return null;
-  return { uid, ...snap.data() } as UserProfile;
+  return { uid, ...snap.data() } as AccountProfile;
 }
 
 // ---------------------------------------------------------------------------
-// Pazienti
+// Utenti Operati
 // ---------------------------------------------------------------------------
 
-export interface CreatePatientData {
+export interface CreateUtenteData {
   nome: string;
   cognome: string;
   dataNascita: string;
@@ -62,82 +62,73 @@ export interface CreatePatientData {
 }
 
 /**
- * Recupera tutti i pazienti del genitore corrente, ordinati per data creazione.
+ * Recupera tutti gli utenti operati dell'account corrente, ordinati per data operazione.
  */
-export async function getPatients(parenteUid: string): Promise<PatientProfile[]> {
+export async function getUtenti(accountId: string): Promise<UtenteProfile[]> {
   const q = query(
-    collection(db, "pazienti"),
-    where("parenteUid", "==", parenteUid)
-    // orderBy("createdAt", "desc") — riabilitare dopo che l'indice composito è pronto
-    // (firebase deploy --only firestore:indexes — attende ~2 minuti)
+    collection(db, "utenti"),
+    where("accountId", "==", accountId)
   );
   const snap: QuerySnapshot<DocumentData> = await getDocs(q);
-  // Sort client-side nel frattempo
-  const patients = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as PatientProfile[];
-  return patients.sort((a, b) => {
-    // Ordina per data operazione decrescente come fallback
+  const utenti = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as UtenteProfile[];
+  return utenti.sort((a, b) => {
     return new Date(b.dataOperazione).getTime() - new Date(a.dataOperazione).getTime();
   });
 }
 
 /**
- * Recupera TUTTI i pazienti (solo per medici).
+ * Recupera TUTTI gli utenti (solo per medici).
  */
-export async function getAllPatients(): Promise<PatientProfile[]> {
-  const q = query(collection(db, "pazienti"));
+export async function getAllUtenti(): Promise<UtenteProfile[]> {
+  const q = query(collection(db, "utenti"));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as PatientProfile[];
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as UtenteProfile[];
 }
 
 /**
- * Recupera un singolo paziente per ID.
+ * Recupera un singolo utente operato per ID.
  */
-export async function getPatient(patientId: string): Promise<PatientProfile | null> {
-  const snap = await getDoc(doc(db, "pazienti", patientId));
+export async function getUtente(utenteId: string): Promise<UtenteProfile | null> {
+  const snap = await getDoc(doc(db, "utenti", utenteId));
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() } as PatientProfile;
+  return { id: snap.id, ...snap.data() } as UtenteProfile;
 }
 
 /**
- * Crea un nuovo paziente su Firestore.
- * Alias: addPatient (richiesto dallo Sprint 2).
+ * Crea un nuovo utente operato su Firestore.
  * Restituisce l'ID del documento creato.
  */
-export async function addPatient(
-  parenteUid: string,
-  data: CreatePatientData
+export async function addUtente(
+  accountId: string,
+  data: CreateUtenteData
 ): Promise<string> {
-  const docRef = await addDoc(collection(db, "pazienti"), {
+  const docRef = await addDoc(collection(db, "utenti"), {
     ...data,
-    parenteUid,
+    accountId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
   return docRef.id;
 }
 
-/** @deprecated Usa addPatient */
-export const createPatient = addPatient;
-
 /**
- * Aggiorna la fase post-operatoria di un paziente.
+ * Aggiorna la fase post-operatoria di un utente.
  */
-export async function updatePatientPhase(
-  patientId: string,
+export async function updateUtentePhase(
+  utenteId: string,
   faseAttualeId: PostOpPhase
 ): Promise<void> {
-  await updateDoc(doc(db, "pazienti", patientId), {
+  await updateDoc(doc(db, "utenti", utenteId), {
     faseAttualeId,
     updatedAt: serverTimestamp(),
   });
 }
 
 /**
- * Elimina un paziente.
- * ATTENZIONE: non elimina i log della sotto-collezione (richiede Cloud Function).
+ * Elimina un utente operato.
  */
-export async function deletePatient(patientId: string): Promise<void> {
-  await deleteDoc(doc(db, "pazienti", patientId));
+export async function deleteUtente(utenteId: string): Promise<void> {
+  await deleteDoc(doc(db, "utenti", utenteId));
 }
 
 // ---------------------------------------------------------------------------
@@ -174,14 +165,14 @@ import type { DailyLogFormData, DailyLog } from "../validations/diary";
 import { limit } from "firebase/firestore";
 
 /**
- * Aggiunge un log giornaliero nella sub-collection /logs del paziente.
+ * Aggiunge un log giornaliero nella sub-collection /diario dell'utente.
  */
 export async function addDailyLog(
-  patientId: string,
+  utenteId: string,
   uid: string,
   logData: DailyLogFormData
 ): Promise<string> {
-  const logsRef = collection(db, "pazienti", patientId, "logs");
+  const logsRef = collection(db, "utenti", utenteId, "diario");
   const docRef = await addDoc(logsRef, {
     ...logData,
     createdByUid: uid,
@@ -191,11 +182,11 @@ export async function addDailyLog(
 }
 
 /**
- * Recupera lo storico dei log di un paziente (dal più recente).
+ * Recupera lo storico dei log di un utente (dal più recente).
  */
-export async function getPatientLogs(patientId: string): Promise<DailyLog[]> {
+export async function getUtenteLogs(utenteId: string): Promise<DailyLog[]> {
   const q = query(
-    collection(db, "pazienti", patientId, "logs"),
+    collection(db, "utenti", utenteId, "diario"),
     orderBy("createdAt", "desc")
   );
   const snap = await getDocs(q);
@@ -210,11 +201,11 @@ export async function getPatientLogs(patientId: string): Promise<DailyLog[]> {
 }
 
 /**
- * Recupera l'ultimo log registrato per un paziente (ordinato per data decrescente).
+ * Recupera l'ultimo log registrato per un utente (ordinato per data decrescente).
  */
-export async function getLatestLog(patientId: string): Promise<DailyLog | null> {
+export async function getLatestLog(utenteId: string): Promise<DailyLog | null> {
   const q = query(
-    collection(db, "pazienti", patientId, "logs"),
+    collection(db, "utenti", utenteId, "diario"),
     orderBy("createdAt", "desc"),
     limit(1)
   );
@@ -239,17 +230,17 @@ export async function getLatestLog(patientId: string): Promise<DailyLog | null> 
 // ---------------------------------------------------------------------------
 
 /**
- * Aggiunge una prescrizione per un paziente.
+ * Aggiunge una prescrizione per un utente.
  */
 export async function addPrescrizione(
-  patientId: string,
+  utenteId: string,
   medicoUid: string,
   medicoNome: string,
   testo: string
 ): Promise<string> {
-  const prescRef = collection(db, "pazienti", patientId, "prescrizioni");
+  const prescRef = collection(db, "utenti", utenteId, "prescrizioni");
   const docRef = await addDoc(prescRef, {
-    patientId,
+    utenteId,
     medicoUid,
     medicoNome,
     testo,
@@ -259,11 +250,11 @@ export async function addPrescrizione(
 }
 
 /**
- * Recupera le prescrizioni di un paziente, ordinate dalla più recente.
+ * Recupera le prescrizioni di un utente, ordinate dalla più recente.
  */
-export async function getPrescrizioni(patientId: string): Promise<Prescrizione[]> {
+export async function getPrescrizioni(utenteId: string): Promise<Prescrizione[]> {
   const q = query(
-    collection(db, "pazienti", patientId, "prescrizioni"),
+    collection(db, "utenti", utenteId, "prescrizioni"),
     orderBy("timestamp", "desc")
   );
   const snap = await getDocs(q);

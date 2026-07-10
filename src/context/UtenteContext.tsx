@@ -1,15 +1,15 @@
 /**
- * @file src/context/PatientContext.tsx
- * @description Context globale per il paziente attivo selezionato.
+ * @file src/context/UtenteContext.tsx
+ * @description Context globale per l'utente operato attivo selezionato.
  *
  * Gestisce:
- * - Lista dei pazienti (via usePatients)
- * - Paziente attivo (persistito in localStorage)
- * - setActivePatient: cambia il paziente selezionato
+ * - Lista degli utenti (via useUtenti)
+ * - Utente attivo (persistito in localStorage)
+ * - setActiveUtente: cambia l'utente selezionato
  *
  * ANTI-HYDRATION MISMATCH:
  * L'accesso a localStorage avviene SOLO in useEffect (lato client, dopo il mount).
- * Il valore iniziale di activePatient è sempre null per il primo render SSR.
+ * Il valore iniziale di activeUtente è sempre null per il primo render SSR.
  * Il componente che consuma il context deve gestire il caso null (loading skeleton).
  */
 
@@ -23,26 +23,26 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { usePatients } from "@/hooks/usePatients";
-import type { PatientProfile } from "@/types";
+import { useUtenti } from "@/hooks/useUtenti";
+import type { UtenteProfile } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Costante
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = "tonsilcare_active_patient_id";
+const STORAGE_KEY = "tonsilcare_active_utente_id";
 
 // ---------------------------------------------------------------------------
 // Tipo del context
 // ---------------------------------------------------------------------------
 
-interface PatientContextValue {
-  /** Lista completa dei pazienti del genitore */
-  patients: PatientProfile[];
-  /** Paziente attualmente selezionato (null durante caricamento o se non ce ne sono) */
-  activePatient: PatientProfile | null;
-  /** Seleziona un paziente e lo persiste in localStorage */
-  setActivePatient: (patient: PatientProfile) => void;
+interface UtenteContextValue {
+  /** Lista completa degli utenti operati collegati all'account */
+  utenti: UtenteProfile[];
+  /** Utente attualmente selezionato (null durante caricamento o se non ce ne sono) */
+  activeUtente: UtenteProfile | null;
+  /** Seleziona un utente e lo persiste in localStorage */
+  setActiveUtente: (utente: UtenteProfile) => void;
   /** True durante il caricamento iniziale */
   loading: boolean;
   /** Messaggio di errore Firestore (se presente) */
@@ -55,20 +55,20 @@ interface PatientContextValue {
 // Context
 // ---------------------------------------------------------------------------
 
-const PatientContext = createContext<PatientContextValue | undefined>(undefined);
+const UtenteContext = createContext<UtenteContextValue | undefined>(undefined);
 
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
 
-export function PatientProvider({ children }: { children: ReactNode }) {
-  const { patients, loading, error, refetch } = usePatients();
-  const [activePatient, setActivePatientState] = useState<PatientProfile | null>(null);
+export function UtenteProvider({ children }: { children: ReactNode }) {
+  const { utenti, loading, error, refetch } = useUtenti();
+  const [activeUtenteState, setActiveUtenteState] = useState<UtenteProfile | null>(null);
   // Traccia se il localStorage è stato letto (per evitare hydration mismatch)
   const [hydrated, setHydrated] = useState(false);
 
   /**
-   * Dopo il mount, legge il paziente attivo dal localStorage.
+   * Dopo il mount, legge l'utente attivo dal localStorage.
    * Se non è salvato o non esiste più nella lista, usa il primo della lista.
    */
   useEffect(() => {
@@ -76,40 +76,40 @@ export function PatientProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Aspetta sia il mount lato client che il caricamento dei pazienti
+    // Aspetta sia il mount lato client che il caricamento degli utenti
     if (!hydrated || loading) return;
 
-    if (patients.length === 0) {
-      setActivePatientState(null);
+    if (utenti.length === 0) {
+      setActiveUtenteState(null);
       return;
     }
 
     const savedId = localStorage.getItem(STORAGE_KEY);
     const restored = savedId
-      ? patients.find((p) => p.id === savedId) ?? patients[0]
-      : patients[0];
+      ? utenti.find((u) => u.id === savedId) ?? utenti[0]
+      : utenti[0];
 
-    setActivePatientState(restored ?? null);
-  }, [hydrated, loading, patients]);
+    setActiveUtenteState(restored ?? null);
+  }, [hydrated, loading, utenti]);
 
-  const setActivePatient = useCallback((patient: PatientProfile) => {
-    setActivePatientState(patient);
-    localStorage.setItem(STORAGE_KEY, patient.id);
+  const setActiveUtente = useCallback((utente: UtenteProfile) => {
+    setActiveUtenteState(utente);
+    localStorage.setItem(STORAGE_KEY, utente.id);
   }, []);
 
   return (
-    <PatientContext.Provider
+    <UtenteContext.Provider
       value={{
-        patients,
-        activePatient,
-        setActivePatient,
+        utenti,
+        activeUtente: activeUtenteState,
+        setActiveUtente,
         loading,
         error,
         refetch,
       }}
     >
       {children}
-    </PatientContext.Provider>
+    </UtenteContext.Provider>
   );
 }
 
@@ -118,14 +118,14 @@ export function PatientProvider({ children }: { children: ReactNode }) {
 // ---------------------------------------------------------------------------
 
 /**
- * Hook per accedere al context del paziente attivo.
- * Lancia un errore se usato fuori dal PatientProvider.
+ * Hook per accedere al context dell'utente attivo.
+ * Lancia un errore se usato fuori dall'UtenteProvider.
  */
-export function usePatient(): PatientContextValue {
-  const context = useContext(PatientContext);
+export function useUtente(): UtenteContextValue {
+  const context = useContext(UtenteContext);
   if (context === undefined) {
     throw new Error(
-      "usePatient deve essere usato all'interno di <PatientProvider>"
+      "useUtente deve essere usato all'interno di <UtenteProvider>"
     );
   }
   return context;

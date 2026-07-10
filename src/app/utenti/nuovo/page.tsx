@@ -3,8 +3,8 @@
  * @description Form per aggiungere un nuovo paziente.
  *
  * Viene usato:
- * 1. Subito dopo la registrazione (primo paziente)
- * 2. Dalla Dashboard quando si vuole aggiungere un altro paziente
+ * 1. Subito dopo la registrazione (primo utente)
+ * 2. Dalla Dashboard quando si vuole aggiungere un altro utente
  *
  * Query param ?primo=true → mostra un messaggio di benvenuto
  */
@@ -15,8 +15,8 @@ import { useState, type FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Baby, AlertCircle, CalendarDays } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { usePatient } from "@/context/PatientContext";
-import { addPatient } from "@/lib/firebase/firestore";
+import { useUtente } from "@/context/UtenteContext";
+import { addUtente } from "@/lib/firebase/firestore";
 import type { PostOpPhase } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -34,12 +34,12 @@ const FASI: { value: PostOpPhase; label: string; range: string }[] = [
 // Componente
 // ---------------------------------------------------------------------------
 
-function PazienteForm() {
+function UtenteForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isPrimo = searchParams.get("primo") === "true";
   const { user } = useAuth();
-  const { refetch } = usePatient();
+  const { refetch } = useUtente();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +56,7 @@ function PazienteForm() {
     setError(null);
 
     if (!user) {
-      setError("Devi essere autenticato per aggiungere un paziente.");
+      setError("Devi essere autenticato per aggiungere un utente.");
       return;
     }
 
@@ -71,7 +71,7 @@ function PazienteForm() {
     setLoading(true);
 
     try {
-      const patientId = await addPatient(user.uid, {
+      const utenteId = await addUtente(user.uid, {
         nome: nome.trim(),
         cognome: cognome.trim(),
         dataNascita,
@@ -79,17 +79,17 @@ function PazienteForm() {
         faseAttualeId,
       });
 
-      // Aggiorna il PatientContext con la nuova lista
+      // Aggiorna l'UtenteContext con la nuova lista
       await refetch();
 
-      // Salva il paziente selezionato nel localStorage
-      localStorage.setItem("tonsilcare_active_patient_id", patientId);
+      // Salva l'utente selezionato nel localStorage
+      localStorage.setItem("tonsilcare_active_utente_id", utenteId);
 
       // Redirect alla Dashboard
       router.push("/");
       router.refresh();
     } catch (err) {
-      console.error("[NuovoPaziente]", err);
+      console.error("[NuovoUtente]", err);
       setError("Errore durante il salvataggio. Riprova.");
     } finally {
       setLoading(false);
@@ -107,7 +107,7 @@ function PazienteForm() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-white">
-              {isPrimo ? "Aggiungi il tuo bambino" : "Nuovo paziente"}
+              {isPrimo ? "Aggiungi il tuo bambino" : "Nuovo utente"}
             </h1>
             {isPrimo && (
               <p className="text-xs text-slate-400">
@@ -123,7 +123,7 @@ function PazienteForm() {
         onSubmit={handleSubmit}
         noValidate
         className="px-4 pb-10 space-y-5"
-        aria-label="Form aggiunta paziente"
+        aria-label="Form aggiunta utente"
       >
         {/* Errore */}
         {error && (
@@ -243,7 +243,7 @@ function PazienteForm() {
 
         {/* Submit */}
         <button
-          id="btn-salva-paziente"
+          id="btn-salva-utente"
           type="submit"
           disabled={loading}
           className="w-full rounded-xl bg-blue-600 py-4 text-sm font-semibold text-white transition-all duration-200 hover:bg-blue-500 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
@@ -251,7 +251,7 @@ function PazienteForm() {
           {loading ? (
             <><Loader2 size={16} className="animate-spin" />Salvataggio…</>
           ) : (
-            isPrimo ? "Inizia il monitoraggio →" : "Salva paziente"
+            isPrimo ? "Inizia il monitoraggio →" : "Salva utente"
           )}
         </button>
       </form>
@@ -259,10 +259,10 @@ function PazienteForm() {
   );
 }
 
-export default function NuovoPazientePage() {
+export default function NuovoUtentePage() {
   return (
     <Suspense fallback={<div className="flex min-h-dvh items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-blue-500" size={32} /></div>}>
-      <PazienteForm />
+      <UtenteForm />
     </Suspense>
   );
 }

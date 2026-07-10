@@ -10,7 +10,7 @@
 
 export type UserRole = "genitore" | "medico";
 
-export interface UserProfile {
+export interface AccountProfile {
   uid: string;
   email: string;
   nome: string;
@@ -22,7 +22,7 @@ export interface UserProfile {
 }
 
 // ---------------------------------------------------------------------------
-// Paziente
+// Utente (Soggetto Operato)
 // ---------------------------------------------------------------------------
 
 /** Fasi post-operatorie della tonsillectomia */
@@ -33,8 +33,8 @@ export type PostOpPhase =
   | "fase_4"   // Giorno 8–10: transizione
   | "fase_5";  // Giorno 11+: ritorno alla normalità
 
-/** Profilo paziente salvato in Firestore */
-export interface PatientProfile {
+/** Profilo dell'utente operato salvato in Firestore */
+export interface UtenteProfile {
   id: string;
   nome: string;
   cognome: string;
@@ -42,7 +42,7 @@ export interface PatientProfile {
   dataOperazione: string;     // ISO 8601
   faseAttualeId: PostOpPhase;
   noteClinicare?: string;
-  parenteUid: string;         // UID Firebase Auth del genitore
+  accountId: string;          // UID Firebase Auth dell'Account che lo gestisce
 }
 
 // ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ export interface PatientProfile {
 /** Singola voce del diario clinico */
 export interface DiaryLog {
   id: string;
-  patientId: string;
+  utenteId: string;
   timestamp: string;          // ISO 8601
   temperatura?: number;       // °C
   dolore?: number;            // Scala 0–10
@@ -69,7 +69,7 @@ export interface DiaryLog {
 
 export interface Prescrizione {
   id: string;
-  patientId: string;
+  utenteId: string;
   testo: string;
   medicoUid: string;
   medicoNome: string;
