@@ -58,6 +58,24 @@ export default function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
+  // -------------------------------------------------------------------------
+  // RBAC (Role-Based Access Control)
+  // -------------------------------------------------------------------------
+  
+  const userRole = request.cookies.get("__role")?.value;
+  const isMedico = userRole === "medico";
+  const isStudioRoute = pathname.startsWith("/studio");
+
+  // Se è un medico e tenta di accedere alla dashboard genitore (/) -> redirect a /studio
+  if (isAuthenticated && isMedico && pathname === "/") {
+    return NextResponse.redirect(new URL("/studio", request.url));
+  }
+
+  // Se è un genitore e tenta di accedere a /studio -> redirect a /
+  if (isAuthenticated && !isMedico && isStudioRoute) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
   return NextResponse.next();
 }
 

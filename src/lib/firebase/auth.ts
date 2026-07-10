@@ -55,9 +55,11 @@ export async function signUp({
 
   // 3. Salva il profilo su Firestore
   await setDoc(doc(db, "utenti", user.uid), {
+    uid: user.uid,
     email: user.email,
     nome,
     cognome,
+    ruolo: "genitore", // Ruolo di default
     displayName: `${nome} ${cognome}`,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

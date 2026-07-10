@@ -70,16 +70,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        // Carica il profilo Firestore del genitore
+        // Carica il profilo Firestore dell'utente
         try {
           const profile = await getUserProfile(firebaseUser.uid);
           setUserProfile(profile);
+          
+          // Imposta il cookie __role per il middleware
+          if (profile?.ruolo) {
+            document.cookie = `__role=${profile.ruolo}; path=/; SameSite=Strict; Secure`;
+          }
         } catch (error) {
           console.error("[AuthContext] Errore caricamento profilo:", error);
           setUserProfile(null);
+          document.cookie = `__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure`;
         }
       } else {
         setUserProfile(null);
+        // Pulisci il cookie __role se l'utente non è loggato
+        document.cookie = `__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure`;
       }
 
       setLoading(false);
@@ -96,9 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await firebaseSignOut();
     // 2. Cancella il cookie di sessione tramite l'API route
     await fetch("/api/logout", { method: "POST" });
-    // 3. Pulisci lo stato locale
+    // 3. Pulisci lo stato locale e i cookie
     setUser(null);
     setUserProfile(null);
+    document.cookie = `__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure`;
     // 4. Redirect al login
     router.push("/login");
     router.refresh();

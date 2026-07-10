@@ -31,22 +31,16 @@ import type {
   PostOpPhase,
   PostOpPhaseConfig,
   MedicalAlerts,
+  UserProfile,
+  Prescrizione,
 } from "@/types";
 
 // ---------------------------------------------------------------------------
-// Profilo Utente (genitore)
+// Profilo Utente (genitore/medico)
 // ---------------------------------------------------------------------------
 
-export interface UserProfile {
-  uid: string;
-  email: string;
-  nome: string;
-  cognome: string;
-  displayName: string;
-}
-
 /**
- * Recupera il profilo genitore da Firestore.
+ * Recupera il profilo utente da Firestore.
  */
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(db, "utenti", uid));
@@ -84,6 +78,15 @@ export async function getPatients(parenteUid: string): Promise<PatientProfile[]>
     // Ordina per data operazione decrescente come fallback
     return new Date(b.dataOperazione).getTime() - new Date(a.dataOperazione).getTime();
   });
+}
+
+/**
+ * Recupera TUTTI i pazienti (solo per medici).
+ */
+export async function getAllPatients(): Promise<PatientProfile[]> {
+  const q = query(collection(db, "pazienti"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as PatientProfile[];
 }
 
 /**
@@ -188,6 +191,25 @@ export async function addDailyLog(
 }
 
 /**
+ * Recupera lo storico dei log di un paziente (dal più recente).
+ */
+export async function getPatientLogs(patientId: string): Promise<DailyLog[]> {
+  const q = query(
+    collection(db, "pazienti", patientId, "logs"),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => {
+    const data = d.data();
+    let createdAtStr = new Date().toISOString();
+    if (data.createdAt && data.createdAt.toDate) {
+      createdAtStr = data.createdAt.toDate().toISOString();
+    }
+    return { id: d.id, ...data, createdAt: createdAtStr } as DailyLog;
+  });
+}
+
+/**
  * Recupera l'ultimo log registrato per un paziente (ordinato per data decrescente).
  */
 export async function getLatestLog(patientId: string): Promise<DailyLog | null> {
@@ -210,6 +232,42 @@ export async function getLatestLog(patientId: string): Promise<DailyLog | null> 
   }
   
   return { id: d.id, ...data, createdAt: createdAtStr } as DailyLog;
+}
+
+// ---------------------------------------------------------------------------
+// Prescrizioni Mediche
+// ---------------------------------------------------------------------------
+
+/**
+ * Aggiunge una prescrizione per un paziente.
+ */
+export async function addPrescrizione(
+  patientId: string,
+  medicoUid: string,
+  medicoNome: string,
+  testo: string
+): Promise<string> {
+  const prescRef = collection(db, "pazienti", patientId, "prescrizioni");
+  const docRef = await addDoc(prescRef, {
+    patientId,
+    medicoUid,
+    medicoNome,
+    testo,
+    timestamp: new Date().toISOString(),
+  });
+  return docRef.id;
+}
+
+/**
+ * Recupera le prescrizioni di un paziente, ordinate dalla più recente.
+ */
+export async function getPrescrizioni(patientId: string): Promise<Prescrizione[]> {
+  const q = query(
+    collection(db, "pazienti", patientId, "prescrizioni"),
+    orderBy("timestamp", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Prescrizione[];
 }
 
 // ---------------------------------------------------------------------------

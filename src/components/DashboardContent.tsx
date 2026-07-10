@@ -40,7 +40,8 @@ import type { DailyLog } from "@/lib/validations/diary";
 import EmptyState from "@/components/EmptyState";
 import UserMenu from "@/components/UserMenu";
 
-import type { MedicalAlerts, PatientProfile, PostOpPhaseConfig } from "@/types";
+import type { MedicalAlerts, PatientProfile, PostOpPhaseConfig, Prescrizione } from "@/types";
+import { getPrescrizioni } from "@/lib/firebase/firestore";
 
 // ---------------------------------------------------------------------------
 // Default soglie alert (fallback se Firestore non ha /config/alerts)
@@ -300,6 +301,41 @@ function AlertBanner({ alerts }: { alerts: MedicalAlerts }) {
   );
 }
 
+/** Card Prescrizioni Medico */
+function PrescrizioniCard({ prescrizioni }: { prescrizioni: Prescrizione[] }) {
+  if (prescrizioni.length === 0) return null;
+
+  return (
+    <article
+      aria-label="Nuovi messaggi dal medico"
+      className="rounded-2xl border border-indigo-700/50 bg-indigo-900/40 p-4 shadow-lg animate-fade-in-up"
+    >
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-500/30 bg-indigo-500/20">
+          <Activity size={15} className="text-indigo-400" />
+        </div>
+        <div>
+          <p className="text-[10px] font-medium uppercase tracking-widest text-indigo-400/80">Aggiornamenti</p>
+          <h2 className="text-sm font-bold text-slate-100">Messaggi dal Medico</h2>
+        </div>
+      </div>
+      <div className="space-y-3">
+        {prescrizioni.map((pr) => (
+          <div key={pr.id} className="rounded-xl bg-slate-900/60 p-3">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs font-semibold text-indigo-300">{pr.medicoNome}</span>
+              <span className="text-[10px] text-slate-500">
+                {new Date(pr.timestamp).toLocaleDateString("it-IT", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+            <p className="text-sm text-slate-200">{pr.testo}</p>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Componente principale (Client Component)
 // ---------------------------------------------------------------------------
@@ -316,6 +352,7 @@ export default function DashboardContent() {
 
   // Carica alert medici da Firestore
   const [alerts, setAlerts] = useState<MedicalAlerts>(DEFAULT_ALERTS);
+  const [prescrizioni, setPrescrizioni] = useState<Prescrizione[]>([]);
 
   useEffect(() => {
     getMedicalAlerts()
@@ -326,6 +363,14 @@ export default function DashboardContent() {
         // Usa il fallback silenziosamente
       });
   }, []);
+
+  useEffect(() => {
+    if (activePatient) {
+      getPrescrizioni(activePatient.id).then(setPrescrizioni).catch(console.error);
+    } else {
+      setPrescrizioni([]);
+    }
+  }, [activePatient?.id]);
 
   // ---- STATI DI CARICAMENTO ----
   const isLoading = patientsLoading || (activePatient !== null && (phaseLoading || logLoading));
@@ -410,6 +455,9 @@ export default function DashboardContent() {
 
         {/* Card Parametri Vitali */}
         <VitalsQuickCard log={latestLog} />
+
+        {/* Prescrizioni dal Medico */}
+        <PrescrizioniCard prescrizioni={prescrizioni} />
 
         {/* Card Piano Alimentare */}
         <MealPlanCard phase={phaseConfig} />

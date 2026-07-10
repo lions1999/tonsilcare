@@ -5,6 +5,23 @@
  */
 
 // ---------------------------------------------------------------------------
+// Utente e Ruoli
+// ---------------------------------------------------------------------------
+
+export type UserRole = "genitore" | "medico";
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  nome: string;
+  cognome: string;
+  ruolo: UserRole;
+  displayName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // Paziente
 // ---------------------------------------------------------------------------
 
@@ -44,6 +61,19 @@ export interface DiaryLog {
   alimentazione?: string;     // Descrizione libera
   note?: string;
   createdByUid: string;
+}
+
+// ---------------------------------------------------------------------------
+// Prescrizioni Mediche
+// ---------------------------------------------------------------------------
+
+export interface Prescrizione {
+  id: string;
+  patientId: string;
+  testo: string;
+  medicoUid: string;
+  medicoNome: string;
+  timestamp: string; // ISO 8601
 }
 
 // ---------------------------------------------------------------------------
