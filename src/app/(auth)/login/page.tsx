@@ -12,7 +12,7 @@
 
 "use client";
 
-import { useState, useRef, type FormEvent } from "react";
+import { useState, useRef, type FormEvent, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, Heart, AlertCircle } from "lucide-react";
@@ -39,7 +39,7 @@ function getErrorMessage(code: string): string {
 // Componente
 // ---------------------------------------------------------------------------
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") ?? "/";
@@ -228,5 +228,13 @@ export default function LoginPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-sm flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" size={32} /></div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
