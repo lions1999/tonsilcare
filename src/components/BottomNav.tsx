@@ -3,7 +3,7 @@
  * @description Bottom Navigation Bar fissa in stile app mobile.
  * 4 tab: Home, Diario, Ricette, Info.
  *
- * Usa "use client" perché ha bisogno di leggere la route attiva (usePathname).
+ * "use client" è necessario per usePathname (hook di routing lato client).
  */
 
 "use client";
@@ -11,10 +11,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, // Home / Dashboard
-  BookOpenText,    // Diario
-  UtensilsCrossed, // Ricette
-  Info,            // Info / Guida
+  LayoutDashboard,
+  BookOpenText,
+  UtensilsCrossed,
+  Info,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -26,24 +26,28 @@ const NAV_ITEMS = [
     href: "/",
     icon: LayoutDashboard,
     ariaLabel: "Vai alla Dashboard",
+    id: "nav-home",
   },
   {
     label: "Diario",
     href: "/diario",
     icon: BookOpenText,
     ariaLabel: "Vai al Diario clinico",
+    id: "nav-diario",
   },
   {
     label: "Ricette",
     href: "/ricette",
     icon: UtensilsCrossed,
     ariaLabel: "Vai alle Ricette",
+    id: "nav-ricette",
   },
   {
     label: "Info",
     href: "/info",
     icon: Info,
     ariaLabel: "Vai alla sezione Informazioni",
+    id: "nav-info",
   },
 ] as const;
 
@@ -56,77 +60,43 @@ export default function BottomNav() {
   return (
     <nav
       aria-label="Navigazione principale"
-      className="
-        fixed bottom-0 left-0 right-0 z-50
-        h-16
-        bg-slate-900/95 backdrop-blur-md
-        border-t border-slate-700/60
-        safe-area-pb
-        flex items-center
-        max-w-lg mx-auto
-        /* Limita la larghezza su tablet/desktop per mantenere l'aspetto mobile */
-      "
+      className="fixed bottom-0 left-0 right-0 z-50 h-16 border-t border-slate-700/60 bg-slate-900/95 backdrop-blur-md"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="flex w-full h-full">
-        {NAV_ITEMS.map(({ label, href, icon: Icon, ariaLabel }) => {
-          // Verifica se il tab è attivo
+      <ul className="mx-auto flex h-full max-w-lg">
+        {NAV_ITEMS.map(({ label, href, icon: Icon, ariaLabel, id }) => {
           const isActive =
-            href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(href);
+            href === "/" ? pathname === "/" : pathname.startsWith(href);
 
           return (
-            <li key={href} className="flex-1">
+            <li key={href} className="flex flex-1">
               <Link
                 href={href}
+                id={id}
                 aria-label={ariaLabel}
                 aria-current={isActive ? "page" : undefined}
-                className="
-                  flex flex-col items-center justify-center
-                  h-full w-full
-                  gap-0.5
-                  transition-all duration-200
-                  group
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900
-                  rounded-md
-                "
+                className="flex w-full flex-col items-center justify-center gap-0.5 rounded-md transition-all duration-200 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900"
               >
-                {/* Icona con sfondo pill quando attivo */}
+                {/* Pill indicator quando attivo */}
                 <span
-                  className={`
-                    relative flex items-center justify-center
-                    w-10 h-6 rounded-full
-                    transition-all duration-200
-                    ${isActive
-                      ? "bg-blue-500/20"
-                      : "group-hover:bg-slate-700/50"
-                    }
-                  `}
+                  className={`flex h-6 w-10 items-center justify-center rounded-full transition-all duration-200 ${
+                    isActive ? "bg-blue-500/20" : "hover:bg-slate-700/50"
+                  }`}
                 >
                   <Icon
                     size={20}
                     strokeWidth={isActive ? 2.5 : 1.8}
-                    className={`
-                      transition-colors duration-200
-                      ${isActive
-                        ? "text-blue-400"
-                        : "text-slate-400 group-hover:text-slate-200"
-                      }
-                    `}
+                    className={`transition-colors duration-200 ${
+                      isActive ? "text-blue-400" : "text-slate-400"
+                    }`}
                   />
                 </span>
 
                 {/* Label */}
                 <span
-                  className={`
-                    text-[10px] font-medium leading-none
-                    transition-colors duration-200
-                    ${isActive
-                      ? "text-blue-400"
-                      : "text-slate-500 group-hover:text-slate-300"
-                    }
-                  `}
+                  className={`text-[10px] font-medium leading-none transition-colors duration-200 ${
+                    isActive ? "text-blue-400" : "text-slate-500"
+                  }`}
                 >
                   {label}
                 </span>

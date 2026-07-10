@@ -70,18 +70,31 @@ export interface PostOpPhaseConfig {
   consigli: string[];
 }
 
+export type RecipeConsistenza = "Liquida" | "Semiliquida" | "Morbida" | "Solida";
+
 /** Ricetta — letta da Firestore > /ricette/{ricettaId} */
 export interface Recipe {
   id: string;
   titolo: string;
   descrizione: string;
-  faseCompatibile: PostOpPhase[];
+  fasiCompatibili: PostOpPhase[];
   ingredienti: string[];
-  preparazione: string;
-  tempoPreparazioneMin: number;
-  immagineUrl?: string;
-  calorie?: number;
-  tags: string[];
+  istruzioni: string[];
+  urlImmagine?: string;
+  consistenza: RecipeConsistenza;
+}
+
+// ---------------------------------------------------------------------------
+// Linee Guida (Info / FAQ)
+// ---------------------------------------------------------------------------
+
+/** Linea guida — letta da Firestore > /info/{id} */
+export interface Guideline {
+  id: string;
+  titolo: string;
+  contenuto: string;
+  categoria: string;
+  icona_opzionale?: string;
 }
 
 // ---------------------------------------------------------------------------

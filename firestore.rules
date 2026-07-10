@@ -1,0 +1,107 @@
+// firestore.rules
+// Regole di sicurezza Firestore per TonsilCare
+//
+// DEPLOY: firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helper functions
+    // -------------------------------------------------------------------------
+
+    /** Verifica che l'utente sia autenticato */
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    /** Verifica che l'utente stia accedendo ai propri dati */
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    /** Verifica che l'utente sia il genitore del paziente */
+    function isPatientParent(patientData) {
+      return request.auth.uid == patientData.parenteUid;
+    }
+
+    // -------------------------------------------------------------------------
+    // /utenti/{uid} — Profilo genitore
+    // -------------------------------------------------------------------------
+    match /utenti/{uid} {
+      // Il genitore può leggere e aggiornare solo il proprio profilo
+      allow read, update: if isAuthenticated() && isOwner(uid);
+      // La creazione avviene durante la registrazione (client)
+      allow create: if isAuthenticated() && isOwner(uid);
+      // La cancellazione è disabilitata (richiede Cloud Function)
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // /pazienti/{patientId} — Profilo paziente
+    // -------------------------------------------------------------------------
+    match /pazienti/{patientId} {
+      // Solo il genitore che ha creato il paziente può leggerlo
+      allow read: if isAuthenticated() && isPatientParent(resource.data);
+      // Solo il genitore autenticato può creare un paziente con il proprio UID
+      allow create: if isAuthenticated()
+        && request.resource.data.parenteUid == request.auth.uid;
+      // Il genitore può aggiornare solo i propri pazienti
+      allow update: if isAuthenticated() && isPatientParent(resource.data);
+      // La cancellazione richiede che il genitore sia il proprietario
+      allow delete: if isAuthenticated() && isPatientParent(resource.data);
+
+      // -----------------------------------------------------------------------
+      // /pazienti/{patientId}/logs/{logId} — Log del diario (sotto-collezione)
+      // -----------------------------------------------------------------------
+      match /logs/{logId} {
+        // Solo il genitore del paziente può leggere i log
+        allow read: if isAuthenticated()
+          && get(/databases/$(database)/documents/pazienti/$(patientId)).data.parenteUid == request.auth.uid;
+        // Solo il genitore può creare log per il proprio paziente
+        allow create: if isAuthenticated()
+          && get(/databases/$(database)/documents/pazienti/$(patientId)).data.parenteUid == request.auth.uid
+          && request.resource.data.createdByUid == request.auth.uid;
+        // Aggiornamento log (es. note aggiuntive)
+        allow update: if isAuthenticated()
+          && get(/databases/$(database)/documents/pazienti/$(patientId)).data.parenteUid == request.auth.uid;
+        // I log non possono essere cancellati (audit trail medico)
+        allow delete: if false;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // /fasi/{faseId} — Configurazione fasi (read-only per tutti gli autenticati)
+    // Scritta solo dagli amministratori tramite Firebase Console o Admin SDK
+    // -------------------------------------------------------------------------
+    match /fasi/{faseId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Solo Admin SDK
+    }
+
+    // -------------------------------------------------------------------------
+    // /config/{docId} — Configurazione medica (alerts, soglie, ecc.)
+    // -------------------------------------------------------------------------
+    match /config/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Solo Admin SDK
+    }
+
+    // -------------------------------------------------------------------------
+    // /ricette/{ricettaId} — Ricette (read-only in prod, write per seeding)
+    // -------------------------------------------------------------------------
+    match /ricette/{ricettaId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // TODO: rimettere a false dopo il seeding
+    }
+
+    // -------------------------------------------------------------------------
+    // /info/{articleId} — Articoli informativi (read-only in prod, write per seeding)
+    // -------------------------------------------------------------------------
+    match /info/{articleId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // TODO: rimettere a false dopo il seeding
+    }
+  }
+}

@@ -1,5 +1,11 @@
 // next.config.mjs
 // Configurazione Next.js con next-pwa per il supporto PWA
+//
+// NOTA: next-pwa usa webpack per generare il Service Worker.
+// In Next.js 16+ con Turbopack come default, è necessario disabilitarlo
+// esplicitamente per compatibilità con next-pwa.
+// In produzione (next build) webpack viene usato automaticamente.
+
 import withPWAInit from "next-pwa";
 
 const withPWA = withPWAInit({
@@ -16,6 +22,9 @@ const withPWA = withPWAInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Silenzia l'avviso di Turbopack in sviluppo
+  // (next-pwa opera solo in produzione — vedi disable: dev above)
+  turbopack: {},
   // Configurazione immagini: aggiungere domini remoti quando necessario
   images: {
     remotePatterns: [],
