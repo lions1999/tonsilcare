@@ -46,7 +46,7 @@ export default function NuovoLogPage() {
     watch,
     formState: { errors },
   } = useForm<DailyLogFormData>({
-    resolver: zodResolver(dailyLogSchema),
+    resolver: zodResolver(dailyLogSchema) as any,
     defaultValues: {
       temperatura: 36.5,
       dolore: 0,
