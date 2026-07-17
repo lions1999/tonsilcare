@@ -13,7 +13,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 /** Route che richiedono autenticazione */
-const PROTECTED_ROUTES = ["/", "/diario", "/ricette", "/info", "/pazienti"];
+const PROTECTED_ROUTES = ["/", "/diario", "/ricette", "/info", "/utenti", "/impostazioni", "/studio"];
 
 /** Route solo per utenti NON autenticati */
 const AUTH_ROUTES = ["/login", "/registrazione"];
