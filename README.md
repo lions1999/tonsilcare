@@ -11,7 +11,7 @@ TonsilCare è una **Progressive Web App (PWA)** mobile-first dedicata al support
 *   **Mobile-First e PWA:** UI ottimizzata per smartphone (Next.js 14 + Tailwind CSS). Installabile su Android/iOS, con manifest e fallback offline.
 *   **Diario Clinico Intelligente:** Registrazione di temperatura, dolore (0-10) e sintomi post-operatori. Generazione di *alert medici* immediati per il genitore in caso di anomalie, avvisando contemporaneamente il medico.
 *   **Ricettario Post-Operatorio:** Consultazione dinamica delle ricette idonee per le specifiche fasi del recupero.
-*   **Notifiche:** Struttura predisposta per l'invio di promemoria tramite Firebase Cloud Messaging.
+*   **Novità in-app:** Indicatori visivi (badge) per segnalare nuovi log diario al medico e nuove prescrizioni al genitore, senza notifiche push esterne al dispositivo.
 
 ---
 
@@ -60,7 +60,6 @@ NEXT_PUBLIC_FIREBASE_API_KEY="tua-api-key"
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="tuo-project.firebaseapp.com"
 NEXT_PUBLIC_FIREBASE_PROJECT_ID="tuo-project"
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="tuo-project.appspot.com"
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="tuo-sender-id"
 NEXT_PUBLIC_FIREBASE_APP_ID="tuo-app-id"
 ```
 

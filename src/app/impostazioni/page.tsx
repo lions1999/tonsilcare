@@ -11,7 +11,6 @@ import { useAuth } from "@/context/AuthContext";
 import { useUtente } from "@/context/UtenteContext";
 import { auth } from "@/lib/firebase/config";
 import { signOut } from "firebase/auth";
-import PushNotificationManager from "@/components/PushNotificationManager";
 
 export default function ImpostazioniPage() {
   const router = useRouter();
@@ -102,14 +101,6 @@ export default function ImpostazioniPage() {
               <p className="text-sm text-slate-500">Nessun utente associato a questo account.</p>
             )}
           </div>
-        </section>
-
-        {/* SEZIONE NOTIFICHE */}
-        <section className="mb-10">
-          <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-500">
-            Preferenze Notifiche
-          </h2>
-          <PushNotificationManager />
         </section>
 
         {/* LOGOUT */}
