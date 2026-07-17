@@ -1,28 +1,29 @@
 /**
  * @file src/app/studio/page.tsx
  * @description Control Room per i Medici (Sprint 7).
- * Mostra tutti i pazienti ordinati per livello di emergenza (Triage).
+ * Mostra tutti i pazienti ordinati per livello di emergenza (Triage), con
+ * ricerca e filtri rapidi (Sprint "novità").
  */
 
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Loader2, Activity, AlertTriangle, CheckCircle, ChevronRight, LogOut } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Activity, CheckCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getAllUtenti, getLatestLog, getMedicalAlerts } from "@/lib/firebase/firestore";
-import type { UtenteProfile, MedicalAlerts } from "@/types";
-import type { DailyLog } from "@/lib/validations/diary";
-
-interface UtenteWithStatus extends UtenteProfile {
-  latestLog: DailyLog | null;
-  hasAlert: boolean;
-}
+import PazienteCard, { type UtenteWithStatus } from "@/components/studio/PazienteCard";
+import SearchAndFilterBar, { type QuickFilterType } from "@/components/studio/SearchAndFilterBar";
+import EmptyState from "@/components/EmptyState";
+import type { PostOpPhase } from "@/types";
 
 export default function StudioPage() {
   const { accountProfile, signOut } = useAuth();
   const [utenti, setUtenti] = useState<UtenteWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState<QuickFilterType>("tutti");
+  const [selectedFase, setSelectedFase] = useState<PostOpPhase | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -35,14 +36,14 @@ export default function StudioPage() {
         const utentiWithLogs = await Promise.all(
           allUtenti.map(async (utente) => {
             const latestLog = await getLatestLog(utente.id);
-            
-            // Logica Triage (Alert)
+
+            // Logica Triage (Alert) — invariata
             let hasAlert = false;
             if (latestLog && alertsConfig) {
               const { temperatura, dolore, sanguinamento, vomito } = latestLog;
               if (
-                sanguinamento || 
-                vomito || 
+                sanguinamento ||
+                vomito ||
                 (temperatura && temperatura >= alertsConfig.temperaturaMaxC) ||
                 (dolore && dolore >= alertsConfig.doloreSoglia)
               ) {
@@ -58,11 +59,15 @@ export default function StudioPage() {
           })
         );
 
-        // Ordinamento: prima quelli con Alert, poi ordinati per data operazione decrescente
+        // Ordinamento: alert, poi novità, poi ultimo aggiornamento decrescente
         utentiWithLogs.sort((a, b) => {
-          if (a.hasAlert && !b.hasAlert) return -1;
-          if (!a.hasAlert && b.hasAlert) return 1;
-          return new Date(b.dataOperazione).getTime() - new Date(a.dataOperazione).getTime();
+          if (a.hasAlert !== b.hasAlert) return a.hasAlert ? -1 : 1;
+          if (!!a.haNuovoLogNonLetto !== !!b.haNuovoLogNonLetto) return a.haNuovoLogNonLetto ? -1 : 1;
+          const recency = (u: typeof a) =>
+            u.latestLog?.createdAt
+              ? new Date(u.latestLog.createdAt).getTime()
+              : new Date(u.dataOperazione).getTime();
+          return recency(b) - recency(a);
         });
 
         setUtenti(utentiWithLogs);
@@ -75,6 +80,26 @@ export default function StudioPage() {
 
     loadData();
   }, []);
+
+  const filteredUtenti = useMemo(() => {
+    return utenti.filter((u) => {
+      const matchesSearch = `${u.nome} ${u.cognome}`
+        .toLowerCase()
+        .includes(searchQuery.trim().toLowerCase());
+      if (!matchesSearch) return false;
+
+      if (filterType === "allerta") return u.hasAlert;
+      if (filterType === "novita") return !!u.haNuovoLogNonLetto;
+      if (filterType === "fase") return selectedFase ? u.faseAttualeId === selectedFase : true;
+      return true;
+    });
+  }, [utenti, searchQuery, filterType, selectedFase]);
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setFilterType("tutti");
+    setSelectedFase(null);
+  };
 
   return (
     <div className="min-h-dvh bg-slate-950 pb-20">
@@ -100,12 +125,21 @@ export default function StudioPage() {
             <LogOut size={18} />
           </button>
         </div>
+
+        <SearchAndFilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          filterType={filterType}
+          onFilterTypeChange={setFilterType}
+          selectedFase={selectedFase}
+          onFaseChange={setSelectedFase}
+        />
       </header>
 
       {/* Lista Utenti */}
       <main className="px-4 py-6">
         <h2 className="text-sm font-medium text-slate-400 mb-4 uppercase tracking-wider">
-          Utenti in Triage ({utenti.length})
+          Utenti in Triage ({filteredUtenti.length})
         </h2>
 
         {loading ? (
@@ -117,64 +151,17 @@ export default function StudioPage() {
             <CheckCircle className="mx-auto mb-3 text-green-500/50" size={40} />
             <p className="text-sm text-slate-400">Nessun utente trovato.</p>
           </div>
+        ) : filteredUtenti.length === 0 ? (
+          <EmptyState
+            title="Nessun paziente trovato"
+            description="Nessun paziente corrisponde ai filtri selezionati."
+            ctaLabel="Cancella filtri"
+            onCtaClick={resetFilters}
+          />
         ) : (
           <div className="space-y-3">
-            {utenti.map((utente) => (
-              <Link 
-                key={utente.id} 
-                href={`/studio/utente/${utente.id}`}
-                className={`block rounded-2xl border p-4 transition-all hover:scale-[1.02] active:scale-95 ${
-                  utente.hasAlert 
-                    ? "border-red-900/50 bg-red-950/20" 
-                    : "border-slate-800/60 bg-slate-900/40 hover:border-indigo-500/30"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-white text-lg">
-                      {utente.nome} {utente.cognome}
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Operato il {new Date(utente.dataOperazione).toLocaleDateString("it-IT")}
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    {utente.hasAlert && (
-                      <span className="flex items-center gap-1.5 rounded-full bg-red-900/50 px-2.5 py-1 text-xs font-medium text-red-200 border border-red-800/50">
-                        <AlertTriangle size={12} />
-                        Attenzione
-                      </span>
-                    )}
-                    <ChevronRight size={18} className="text-slate-500" />
-                  </div>
-                </div>
-
-                {/* Ultimo Log Summary */}
-                {utente.latestLog && (
-                  <div className={`mt-4 rounded-xl px-3 py-2 text-xs border ${
-                    utente.hasAlert ? "bg-red-950/40 border-red-900/30 text-red-200" : "bg-slate-800/40 border-slate-700/50 text-slate-300"
-                  }`}>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="opacity-80">Ultimo aggiornamento:</span>
-                      <span className="font-medium">
-                        {new Date(utente.latestLog.createdAt!).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    <div className="flex gap-4 font-medium mt-1">
-                      {utente.latestLog.temperatura && (
-                        <span>Temp: {utente.latestLog.temperatura}°C</span>
-                      )}
-                      {utente.latestLog.dolore !== undefined && (
-                        <span>Dolore: {utente.latestLog.dolore}/10</span>
-                      )}
-                      {(utente.latestLog.sanguinamento || utente.latestLog.vomito) && (
-                        <span className="text-red-400">Sintomi critici</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </Link>
+            {filteredUtenti.map((utente) => (
+              <PazienteCard key={utente.id} utente={utente} />
             ))}
           </div>
         )}

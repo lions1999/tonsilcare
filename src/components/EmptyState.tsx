@@ -16,8 +16,10 @@ interface EmptyStateProps {
   description?: string;
   /** Label del pulsante CTA */
   ctaLabel?: string;
-  /** Destinazione del CTA */
+  /** Destinazione del CTA (ignorata se onCtaClick è presente) */
   ctaHref?: string;
+  /** Handler alternativo a ctaHref per azioni non di navigazione (es. reset filtri) */
+  onCtaClick?: () => void;
 }
 
 export default function EmptyState({
@@ -25,6 +27,7 @@ export default function EmptyState({
   description = "Aggiungi il tuo bambino per iniziare il monitoraggio post-operatorio.",
   ctaLabel = "Aggiungi il tuo primo paziente",
   ctaHref = "/utenti/nuovo?primo=true",
+  onCtaClick,
 }: EmptyStateProps) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
@@ -50,21 +53,40 @@ export default function EmptyState({
       </p>
 
       {/* CTA */}
-      <Link
-        href={ctaHref}
-        id="btn-empty-state-cta"
-        className="
-          flex items-center gap-2.5
-          rounded-2xl bg-blue-600 px-6 py-4
-          text-sm font-bold text-white
-          shadow-xl shadow-blue-900/40
-          transition-all duration-200
-          hover:bg-blue-500 active:scale-95
-        "
-      >
-        <PlusCircle size={18} />
-        {ctaLabel}
-      </Link>
+      {onCtaClick ? (
+        <button
+          type="button"
+          onClick={onCtaClick}
+          id="btn-empty-state-cta"
+          className="
+            flex items-center gap-2.5
+            rounded-2xl bg-blue-600 px-6 py-4
+            text-sm font-bold text-white
+            shadow-xl shadow-blue-900/40
+            transition-all duration-200
+            hover:bg-blue-500 active:scale-95
+          "
+        >
+          <PlusCircle size={18} />
+          {ctaLabel}
+        </button>
+      ) : (
+        <Link
+          href={ctaHref}
+          id="btn-empty-state-cta"
+          className="
+            flex items-center gap-2.5
+            rounded-2xl bg-blue-600 px-6 py-4
+            text-sm font-bold text-white
+            shadow-xl shadow-blue-900/40
+            transition-all duration-200
+            hover:bg-blue-500 active:scale-95
+          "
+        >
+          <PlusCircle size={18} />
+          {ctaLabel}
+        </Link>
+      )}
 
       {/* Nota rassicurante */}
       <p className="mt-6 text-xs text-slate-600">

@@ -9,12 +9,39 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Send, Activity, Thermometer, AlertCircle, MessageSquare, Stethoscope, ShieldAlert } from "lucide-react";
+import {
+  Loader2,
+  ArrowLeft,
+  Send,
+  Activity,
+  Thermometer,
+  AlertCircle,
+  MessageSquare,
+  Stethoscope,
+  ShieldAlert,
+  GlassWater,
+  Utensils,
+  UtensilsCrossed,
+  Salad,
+  Meh,
+  Frown,
+  Scale,
+  Moon,
+  Smile,
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getUtente, getUtenteLogs, addPrescrizione, getPrescrizioni } from "@/lib/firebase/firestore";
+import {
+  getUtente,
+  getUtenteLogs,
+  addPrescrizione,
+  getPrescrizioni,
+  clearNuovoLogNonLetto,
+  markRispostaMedicoNonLetta,
+  getMedicalAlerts,
+} from "@/lib/firebase/firestore";
 import { calcolaEta, calcolaBMI } from "@/lib/utils/paziente";
 import { TIPI_INTERVENTO } from "@/lib/validations/utente";
-import type { UtenteProfile, Prescrizione } from "@/types";
+import type { UtenteProfile, Prescrizione, MedicalAlerts } from "@/types";
 import type { DailyLog } from "@/lib/validations/diary";
 
 export default function UtenteDettaglioMedico() {
@@ -26,6 +53,7 @@ export default function UtenteDettaglioMedico() {
   const [utente, setUtente] = useState<UtenteProfile | null>(null);
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [prescrizioni, setPrescrizioni] = useState<Prescrizione[]>([]);
+  const [alertsConfig, setAlertsConfig] = useState<MedicalAlerts | null>(null);
 
   // Form Prescrizione
   const [nuovaPrescrizione, setNuovaPrescrizione] = useState("");
@@ -44,6 +72,14 @@ export default function UtenteDettaglioMedico() {
         setUtente(pz);
         setLogs(lg);
         setPrescrizioni(pr);
+
+        // Azzera il flag "novità" solo se era true, per evitare write superflue.
+        if (pz?.haNuovoLogNonLetto) {
+          clearNuovoLogNonLetto(id).catch((err) =>
+            console.error("Errore azzeramento flag haNuovoLogNonLetto:", err)
+          );
+          setUtente((prev) => (prev ? { ...prev, haNuovoLogNonLetto: false } : prev));
+        }
       } catch (err) {
         console.error("Errore recupero utente", err);
       } finally {
@@ -52,6 +88,12 @@ export default function UtenteDettaglioMedico() {
     }
     loadData();
   }, [id]);
+
+  // Caricamento soglie mediche, per allinearsi alle stesse soglie dinamiche
+  // già usate in Control Room (studio/page.tsx) invece di valori hardcoded.
+  useEffect(() => {
+    getMedicalAlerts().then(setAlertsConfig).catch(console.error);
+  }, []);
 
   const handleInvioPrescrizione = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -62,10 +104,13 @@ export default function UtenteDettaglioMedico() {
 
     try {
       await addPrescrizione(
-        utente.id, 
-        user.uid, 
-        `Dr. ${accountProfile.cognome}`, 
+        utente.id,
+        user.uid,
+        `Dr. ${accountProfile.cognome}`,
         nuovaPrescrizione.trim()
+      );
+      markRispostaMedicoNonLetta(utente.accountId).catch((err) =>
+        console.error("Errore aggiornamento flag haRispostaMedicoNonLetta:", err)
       );
       setNuovaPrescrizione("");
       // Ricarica prescrizioni
@@ -200,7 +245,7 @@ export default function UtenteDettaglioMedico() {
                     <span className="text-xs text-slate-400">
                       {new Date(log.createdAt!).toLocaleDateString("it-IT", { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </span>
-                    {(log.sanguinamento || log.vomito || (log.temperatura && log.temperatura >= 38.5)) && (
+                    {(log.sanguinamento || log.vomito || (log.temperatura && log.temperatura >= (alertsConfig?.temperaturaMaxC ?? 38.5))) && (
                       <span className="text-red-400">
                         <AlertCircle size={14} />
                       </span>
@@ -210,7 +255,7 @@ export default function UtenteDettaglioMedico() {
                     {log.temperatura && (
                       <div className="flex items-center gap-1.5">
                         <Thermometer size={14} className="text-slate-500" />
-                        <span className={log.temperatura >= 38.5 ? "text-red-400 font-medium" : ""}>
+                        <span className={log.temperatura >= (alertsConfig?.temperaturaMaxC ?? 38.5) ? "text-red-400 font-medium" : ""}>
                           {log.temperatura}°C
                         </span>
                       </div>
@@ -218,16 +263,70 @@ export default function UtenteDettaglioMedico() {
                     {log.dolore !== undefined && (
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-500 text-xs">Dolore:</span>
-                        <span className={log.dolore >= 7 ? "text-orange-400 font-medium" : ""}>
+                        <span className={log.dolore >= (alertsConfig?.doloreSoglia ?? 7) ? "text-orange-400 font-medium" : ""}>
                           {log.dolore}/10
                         </span>
                       </div>
                     )}
                   </div>
-                  
+
+                  {/* Alimentazione, idratazione e parametri aggiuntivi (P0-3) */}
+                  {(log.quantitaLiquidiBicchieri !== undefined ||
+                    log.numeroPasti !== undefined ||
+                    log.peso !== undefined ||
+                    log.doloreDeglutizione !== undefined ||
+                    log.qualitaSonno !== undefined ||
+                    log.statoGenerale !== undefined) && (
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-300 border-t border-slate-800/50 pt-2">
+                      {log.quantitaLiquidiBicchieri !== undefined && (
+                        <span className="flex items-center gap-1">
+                          <GlassWater size={12} className="text-cyan-400" /> {log.quantitaLiquidiBicchieri} bicchieri
+                        </span>
+                      )}
+                      {log.numeroPasti !== undefined && (
+                        <span className="flex items-center gap-1">
+                          <Utensils size={12} className="text-cyan-400" /> {log.numeroPasti} pasti
+                        </span>
+                      )}
+                      {log.peso !== undefined && (
+                        <span className="flex items-center gap-1">
+                          <Scale size={12} className="text-emerald-400" /> {log.peso} kg
+                        </span>
+                      )}
+                      {log.doloreDeglutizione !== undefined && (
+                        <span className="flex items-center gap-1">
+                          <Frown size={12} className="text-rose-400" /> Deglutizione {log.doloreDeglutizione}/10
+                        </span>
+                      )}
+                      {log.qualitaSonno !== undefined && (
+                        <span className="flex items-center gap-1">
+                          <Moon size={12} className="text-indigo-400" /> Sonno {log.qualitaSonno}/5
+                        </span>
+                      )}
+                      {log.statoGenerale !== undefined && (
+                        <span className="flex items-center gap-1">
+                          <Smile size={12} className="text-amber-400" /> Stato {log.statoGenerale}/5
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {log.alimentiTollerati && log.alimentiTollerati.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <Salad size={12} className="text-lime-400 flex-shrink-0" />
+                      {log.alimentiTollerati.map((cibo) => (
+                        <span key={cibo} className="rounded-full border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-300">
+                          {cibo}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="mt-2 text-xs space-y-1">
                     {log.sanguinamento && <p className="text-red-400 flex items-center gap-1"><AlertCircle size={10} /> Sanguinamento riportato</p>}
                     {log.vomito && <p className="text-red-400 flex items-center gap-1"><AlertCircle size={10} /> Vomito riportato</p>}
+                    {log.rifiutoCibo && <p className="text-orange-400 flex items-center gap-1"><UtensilsCrossed size={10} /> Rifiuto del cibo</p>}
+                    {log.nausea && <p className="text-lime-400 flex items-center gap-1"><Meh size={10} /> Nausea</p>}
                     {log.note && <p className="text-slate-400 mt-2 bg-slate-950/50 p-2 rounded-lg italic">"{log.note}"</p>}
                   </div>
                 </div>
