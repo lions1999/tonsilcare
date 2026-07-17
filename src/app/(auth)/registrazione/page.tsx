@@ -77,7 +77,7 @@ export default function RegistrazionePage() {
       document.cookie = `__session=${token}; path=/; SameSite=Strict; Secure`;
 
       // Dopo la registrazione → aggiungi il primo paziente
-      router.push("/pazienti/nuovo?primo=true");
+      router.push("/utenti/nuovo?primo=true");
     } catch (err: unknown) {
       const code = (err as { code?: string }).code ?? "";
       setError(getErrorMessage(code));

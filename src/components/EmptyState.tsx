@@ -24,7 +24,7 @@ export default function EmptyState({
   title = "Nessun paziente registrato",
   description = "Aggiungi il tuo bambino per iniziare il monitoraggio post-operatorio.",
   ctaLabel = "Aggiungi il tuo primo paziente",
-  ctaHref = "/pazienti/nuovo?primo=true",
+  ctaHref = "/utenti/nuovo?primo=true",
 }: EmptyStateProps) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
