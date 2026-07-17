@@ -30,7 +30,7 @@ import {
 
 import { useAuth } from "@/context/AuthContext";
 import { useUtente } from "@/context/UtenteContext";
-import { addDailyLog, getMedicalAlerts } from "@/lib/firebase/firestore";
+import { addDailyLog, getMedicalAlerts, markNuovoLogNonLetto } from "@/lib/firebase/firestore";
 import { dailyLogSchema, type DailyLogFormData } from "@/lib/validations/diary";
 import { parseListaTesto } from "@/lib/validations/utente";
 import type { MedicalAlerts } from "@/types";
@@ -118,6 +118,13 @@ export default function NuovoLogPage() {
         ...data,
         alimentiTollerati: parseListaTesto(alimentiTolleratiText),
       });
+
+      // Segnala al medico che c'è un nuovo log da vedere in Control Room.
+      // Fallisce silenziosamente: il log clinico è già salvato, questo flag
+      // è solo un'indicazione UI secondaria e non deve bloccare il flusso.
+      markNuovoLogNonLetto(activeUtente.id).catch((err) =>
+        console.error("Errore aggiornamento flag haNuovoLogNonLetto:", err)
+      );
 
       if (isEmergency) {
         setShowEmergencyModal(true);

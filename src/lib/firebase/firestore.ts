@@ -49,6 +49,26 @@ export async function getAccountProfile(uid: string): Promise<AccountProfile | n
   return { uid, ...snap.data() } as AccountProfile;
 }
 
+/**
+ * Segnala al genitore che è arrivata una nuova prescrizione non ancora vista.
+ * Chiamata dal client medico dopo addPrescrizione.
+ */
+export async function markRispostaMedicoNonLetta(accountId: string): Promise<void> {
+  await updateDoc(doc(db, "accounts", accountId), {
+    haRispostaMedicoNonLetta: true,
+  });
+}
+
+/**
+ * Azzera il flag "risposta medico non letta" sul proprio account.
+ * Chiamata dal client genitore su un'azione esplicita di consultazione.
+ */
+export async function clearRispostaMedicoNonLetta(accountId: string): Promise<void> {
+  await updateDoc(doc(db, "accounts", accountId), {
+    haRispostaMedicoNonLetta: false,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Utenti Operati
 // ---------------------------------------------------------------------------
@@ -197,6 +217,26 @@ export async function addDailyLog(
     createdAt: serverTimestamp(),
   });
   return docRef.id;
+}
+
+/**
+ * Segnala al medico che è stato inserito un nuovo log diario non ancora
+ * visualizzato in Control Room. Chiamata dal client genitore dopo addDailyLog.
+ */
+export async function markNuovoLogNonLetto(utenteId: string): Promise<void> {
+  await updateDoc(doc(db, "utenti", utenteId), {
+    haNuovoLogNonLetto: true,
+  });
+}
+
+/**
+ * Azzera il flag "nuovo log non letto". Chiamata dal client medico quando
+ * apre la scheda di questo paziente.
+ */
+export async function clearNuovoLogNonLetto(utenteId: string): Promise<void> {
+  await updateDoc(doc(db, "utenti", utenteId), {
+    haNuovoLogNonLetto: false,
+  });
 }
 
 /**

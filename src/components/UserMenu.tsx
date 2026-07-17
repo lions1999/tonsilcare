@@ -10,14 +10,33 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, User, ChevronDown, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { clearRispostaMedicoNonLetta } from "@/lib/firebase/firestore";
 
 export default function UserMenu() {
   const { user, accountProfile, signOut } = useAuth();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  // Stato locale per riflettere subito l'azzeramento in UI: accountProfile
+  // viene caricato una tantum da AuthContext, non in realtime.
+  const [flagCleared, setFlagCleared] = useState(false);
 
   if (!user) return null;
+
+  const hasNovita = !flagCleared && !!accountProfile?.haRispostaMedicoNonLetta;
+
+  const handleToggleMenu = () => {
+    const next = !open;
+    setOpen(next);
+    // Azzera solo all'apertura (azione esplicita di consultazione), non alla
+    // chiusura, e solo se il flag era effettivamente attivo.
+    if (next && hasNovita && accountProfile) {
+      clearRispostaMedicoNonLetta(accountProfile.uid).catch((err) =>
+        console.error("Errore azzeramento flag haRispostaMedicoNonLetta:", err)
+      );
+      setFlagCleared(true);
+    }
+  };
 
   // Iniziale del nome per l'avatar
   const iniziale = accountProfile?.nome?.[0]?.toUpperCase()
@@ -47,12 +66,18 @@ export default function UserMenu() {
         aria-label="Menu utente"
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggleMenu}
         className="flex items-center gap-2 rounded-xl bg-blue-600/20 border border-blue-500/30 pl-2 pr-1 py-1 transition-colors hover:bg-blue-600/30"
       >
         {/* Avatar con iniziale */}
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+        <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
           {iniziale}
+          {hasNovita && (
+            <span
+              aria-label="Nuova prescrizione dal medico"
+              className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-sky-400 ring-2 ring-slate-950"
+            />
+          )}
         </div>
         <ChevronDown
           size={13}

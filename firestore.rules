@@ -38,6 +38,11 @@ service cloud.firestore {
     match /accounts/{uid} {
       // Il proprietario può leggere e aggiornare il proprio profilo
       allow read, update: if isAuthenticated() && isOwner(uid);
+      // Il medico può aggiornare SOLO il flag "risposta non letta" sull'account
+      // di un genitore (mai sul proprio), per segnalare una nuova prescrizione.
+      allow update: if isAuthenticated() && isMedico() && !isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['haRispostaMedicoNonLetta']);
       // La creazione avviene durante la registrazione (client)
       allow create: if isAuthenticated() && isOwner(uid);
       // La cancellazione è disabilitata (richiede Cloud Function)
@@ -55,6 +60,11 @@ service cloud.firestore {
         && request.resource.data.accountId == request.auth.uid;
       // L'account può aggiornare solo i propri utenti operati
       allow update: if isAuthenticated() && isUtenteAccount(resource.data);
+      // Il medico può aggiornare SOLO il flag "nuovo log non letto", per
+      // azzerarlo quando apre la scheda di questo paziente.
+      allow update: if isAuthenticated() && isMedico()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['haNuovoLogNonLetto']);
       // La cancellazione richiede che l'account sia il proprietario
       allow delete: if isAuthenticated() && isUtenteAccount(resource.data);
 

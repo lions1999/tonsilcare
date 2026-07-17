@@ -19,6 +19,15 @@ export interface AccountProfile {
   displayName: string;
   createdAt: string;
   updatedAt: string;
+
+  /**
+   * Flag "novità" per il genitore: true quando il medico ha inviato una nuova
+   * prescrizione non ancora vista. Impostato da markRispostaMedicoNonLetta()
+   * dopo addPrescrizione, azzerato da clearRispostaMedicoNonLetta() quando il
+   * genitore apre il menu utente (azione esplicita, non al semplice caricamento
+   * della dashboard). Campo assente sugli account creati prima della sua introduzione.
+   */
+  haRispostaMedicoNonLetta?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -63,6 +72,15 @@ export interface UtenteProfile {
   altezza?: number;            // cm
   allergieIntolleranze?: string[];
   patologieAssociate?: string[];
+
+  /**
+   * Flag "novità" per il medico: true quando il genitore ha inserito un nuovo
+   * log diario non ancora visualizzato in Control Room. Impostato da
+   * markNuovoLogNonLetto() dopo addDailyLog, azzerato da clearNuovoLogNonLetto()
+   * quando il medico apre la scheda di questo paziente. Campo assente sui
+   * pazienti creati prima della sua introduzione.
+   */
+  haNuovoLogNonLetto?: boolean;
 }
 
 // ---------------------------------------------------------------------------
