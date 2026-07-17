@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, Heart, AlertCircle } from "lucide-react";
 import { signIn } from "@/lib/firebase/auth";
+import { getAccountProfile } from "@/lib/firebase/firestore";
 
 // ---------------------------------------------------------------------------
 // Mappatura errori Firebase → messaggi in italiano
@@ -66,6 +67,20 @@ function LoginForm() {
       // Il token ID ha durata 1 ora — per produzione usa Firebase Session Cookies
       const token = await credential.user.getIdToken();
       document.cookie = `__session=${token}; path=/; SameSite=Strict; Secure`;
+
+      // Scrive __role qui, sincrono col login, invece di aspettare il
+      // listener asincrono di AuthContext: altrimenti il router.push() qui
+      // sotto arriva al middleware prima che il ruolo sia noto, e il
+      // redirect RBAC medico -> /studio non scatta.
+      try {
+        const profile = await getAccountProfile(credential.user.uid);
+        if (profile?.ruolo) {
+          document.cookie = `__role=${profile.ruolo}; path=/; SameSite=Strict; Secure`;
+        }
+      } catch (roleErr) {
+        console.error("[Login] Errore lettura ruolo account:", roleErr);
+        // Non blocca il login: AuthContext lo scriverà comunque appena risolve.
+      }
 
       router.push(redirectTo);
       router.refresh();

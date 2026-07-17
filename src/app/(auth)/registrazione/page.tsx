@@ -76,6 +76,12 @@ export default function RegistrazionePage() {
       const token = await credential.user.getIdToken();
       document.cookie = `__session=${token}; path=/; SameSite=Strict; Secure`;
 
+      // Il ruolo di un nuovo account è sempre "genitore" (vedi signUp in
+      // lib/firebase/auth.ts) — nessun fetch necessario. Scritto qui, sincrono
+      // con la registrazione, per la stessa ragione del login: evitare la
+      // dipendenza dal listener asincrono di AuthContext prima della navigazione.
+      document.cookie = `__role=genitore; path=/; SameSite=Strict; Secure`;
+
       // Dopo la registrazione → aggiungi il primo paziente
       router.push("/utenti/nuovo?primo=true");
     } catch (err: unknown) {
