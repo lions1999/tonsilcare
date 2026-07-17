@@ -3,7 +3,7 @@
  * @description Client Component per la Dashboard principale.
  *
  * Legge i dati reali da:
- * - PatientContext → paziente attivo (da Firestore via usePatients)
+ * - UtenteContext → utente attivo (da Firestore via useUtenti)
  * - usePhaseConfig → configurazione fase (da Firestore con fallback locale)
  * - getMedicalAlerts → soglie di alert (da Firestore)
  *

@@ -1,13 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "pazienti",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "parenteUid", "order": "ASCENDING" },
-        { "fieldPath": "createdAt",  "order": "DESCENDING" }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }

@@ -8,7 +8,7 @@
  * ARCHITETTURA SPRINT 2:
  * - Nessun dato hardcodato o mock
  * - I dati provengono da:
- *   → PatientContext (paziente attivo da Firestore)
+ *   → UtenteContext (utente attivo da Firestore)
  *   → usePhaseConfig (config fase da Firestore + fallback)
  *   → getMedicalAlerts (soglie da Firestore + fallback)
  */
