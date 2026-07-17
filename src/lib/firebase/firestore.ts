@@ -33,6 +33,7 @@ import type {
   MedicalAlerts,
   AccountProfile,
   Prescrizione,
+  TipoIntervento,
 } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -59,6 +60,11 @@ export interface CreateUtenteData {
   dataOperazione: string;
   faseAttualeId: PostOpPhase;
   noteClinica?: string;
+  tipoIntervento?: TipoIntervento;
+  pesoIniziale?: number;
+  altezza?: number;
+  allergieIntolleranze?: string[];
+  patologieAssociate?: string[];
 }
 
 /**

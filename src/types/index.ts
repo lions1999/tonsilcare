@@ -25,7 +25,13 @@ export interface AccountProfile {
 // Utente (Soggetto Operato)
 // ---------------------------------------------------------------------------
 
-/** Fasi post-operatorie della tonsillectomia */
+/** Tipo di intervento ORL previsto o eseguito */
+export type TipoIntervento =
+  | "adenoidectomia"
+  | "tonsillectomia"
+  | "adenotonsillectomia";
+
+/** Fasi post-operatorie del recupero */
 export type PostOpPhase =
   | "fase_1"   // Giorno 0–1: liquidi freddi
   | "fase_2"   // Giorno 2–4: semiliquidi
@@ -43,6 +49,20 @@ export interface UtenteProfile {
   faseAttualeId: PostOpPhase;
   noteClinicare?: string;
   accountId: string;          // UID Firebase Auth dell'Account che lo gestisce
+
+  // Campi opzionali: assenti sui pazienti creati prima della loro introduzione,
+  // richiesti invece dal form per ogni nuovo paziente (vedi validations/utente.ts)
+  tipoIntervento?: TipoIntervento;
+  /**
+   * Peso (kg) rilevato alla creazione della scheda paziente — valore auxologico
+   * "di partenza", NON lo storico peso del diario giornaliero (previsto in P0-3).
+   * Il calo ponderale si calcolerà come `pesoIniziale - ultimo peso registrato nel diario`,
+   * quindi i due campi restano concettualmente e strutturalmente separati.
+   */
+  pesoIniziale?: number;
+  altezza?: number;            // cm
+  allergieIntolleranze?: string[];
+  patologieAssociate?: string[];
 }
 
 // ---------------------------------------------------------------------------

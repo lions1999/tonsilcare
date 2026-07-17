@@ -1,5 +1,5 @@
 /**
- * @file src/app/studio/paziente/[id]/page.tsx
+ * @file src/app/studio/utente/[id]/page.tsx
  * @description Pagina di dettaglio del paziente per il Medico.
  * Mostra storico parametri vitali e permette di inviare prescrizioni.
  */
@@ -9,9 +9,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, ArrowLeft, Send, Activity, Thermometer, AlertCircle, MessageSquare } from "lucide-react";
+import { Loader2, ArrowLeft, Send, Activity, Thermometer, AlertCircle, MessageSquare, Stethoscope, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getUtente, getUtenteLogs, addPrescrizione, getPrescrizioni } from "@/lib/firebase/firestore";
+import { calcolaEta, calcolaBMI } from "@/lib/utils/paziente";
+import { TIPI_INTERVENTO } from "@/lib/validations/utente";
 import type { UtenteProfile, Prescrizione } from "@/types";
 import type { DailyLog } from "@/lib/validations/diary";
 
@@ -117,7 +119,68 @@ export default function UtenteDettaglioMedico() {
       </header>
 
       <main className="px-4 py-6 space-y-8">
-        
+
+        {/* Riepilogo Clinico */}
+        <section>
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">
+            <Stethoscope size={16} className="text-indigo-400" />
+            Dati Clinici e Auxologici
+          </h2>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-slate-500">Tipo intervento</p>
+                <p className="font-medium text-slate-200">
+                  {TIPI_INTERVENTO.find((t) => t.value === utente.tipoIntervento)?.label ?? "Non specificato"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Età</p>
+                <p className="font-medium text-slate-200">{calcolaEta(utente.dataNascita)} anni</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Peso iniziale / Altezza</p>
+                <p className="font-medium text-slate-200">
+                  {utente.pesoIniziale && utente.altezza
+                    ? `${utente.pesoIniziale} kg / ${utente.altezza} cm`
+                    : "Non specificato"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">BMI</p>
+                <p className="font-medium text-slate-200">
+                  {utente.pesoIniziale && utente.altezza
+                    ? calcolaBMI(utente.pesoIniziale, utente.altezza).toFixed(1)
+                    : "Non specificato"}
+                </p>
+              </div>
+            </div>
+
+            {(utente.allergieIntolleranze?.length || utente.patologieAssociate?.length) ? (
+              <div className="border-t border-slate-800 pt-3 space-y-2">
+                {utente.allergieIntolleranze && utente.allergieIntolleranze.length > 0 && (
+                  <div className="flex items-start gap-2 text-sm">
+                    <ShieldAlert size={14} className="mt-0.5 flex-shrink-0 text-amber-400" />
+                    <p className="text-slate-300">
+                      <span className="text-xs text-slate-500 block">Allergie / intolleranze</span>
+                      {utente.allergieIntolleranze.join(", ")}
+                    </p>
+                  </div>
+                )}
+                {utente.patologieAssociate && utente.patologieAssociate.length > 0 && (
+                  <div className="flex items-start gap-2 text-sm">
+                    <AlertCircle size={14} className="mt-0.5 flex-shrink-0 text-slate-400" />
+                    <p className="text-slate-300">
+                      <span className="text-xs text-slate-500 block">Patologie associate</span>
+                      {utente.patologieAssociate.join(", ")}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </section>
+
         {/* Storico Diario Clinico */}
         <section>
           <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">

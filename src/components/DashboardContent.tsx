@@ -37,6 +37,8 @@ import { usePhaseConfig } from "@/hooks/usePhaseConfig";
 import { getMedicalAlerts } from "@/lib/firebase/firestore";
 import { useDailyLogs } from "@/hooks/useDailyLogs";
 import type { DailyLog } from "@/lib/validations/diary";
+import { calcolaGiornoPostOp } from "@/lib/utils/paziente";
+import { TIPI_INTERVENTO } from "@/lib/validations/utente";
 import EmptyState from "@/components/EmptyState";
 import UserMenu from "@/components/UserMenu";
 
@@ -54,17 +56,6 @@ const DEFAULT_ALERTS: MedicalAlerts = {
   messaggioEmergenza:
     "Contatta il pediatra o vai al Pronto Soccorso se la temperatura supera i 38.5°C o compare sanguinamento.",
 };
-
-// ---------------------------------------------------------------------------
-// Helper
-// ---------------------------------------------------------------------------
-
-function calcolaGiornoPostOp(dataOperazione: string): number {
-  const oggi = new Date();
-  const dataOp = new Date(dataOperazione);
-  const diffMs = oggi.getTime() - dataOp.getTime();
-  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-}
 
 // ---------------------------------------------------------------------------
 // Sub-componenti UI
@@ -123,6 +114,9 @@ function UtenteStatusCard({
           <h2 className="text-xl font-bold leading-tight text-white">
             {utente.nome} {utente.cognome}
           </h2>
+          <p className="mt-0.5 text-xs text-blue-100/70">
+            {TIPI_INTERVENTO.find((t) => t.value === utente.tipoIntervento)?.label ?? "Tipo intervento non specificato"}
+          </p>
         </div>
         <div className="flex min-w-[60px] flex-col items-center rounded-xl bg-white/15 px-3 py-2 backdrop-blur-sm">
           <span className="text-2xl font-black leading-none text-white">{giornoPostOp}°</span>

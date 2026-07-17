@@ -1,5 +1,5 @@
 /**
- * @file src/app/pazienti/nuovo/page.tsx
+ * @file src/app/utenti/nuovo/page.tsx
  * @description Form per aggiungere un nuovo paziente.
  *
  * Viene usato:
@@ -13,11 +13,17 @@
 
 import { useState, type FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Baby, AlertCircle, CalendarDays } from "lucide-react";
+import { Loader2, Baby, AlertCircle, CalendarDays, Scale, Ruler, Stethoscope, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useUtente } from "@/context/UtenteContext";
 import { addUtente } from "@/lib/firebase/firestore";
-import type { PostOpPhase } from "@/types";
+import { calcolaBMI } from "@/lib/utils/paziente";
+import {
+  utenteProfileSchema,
+  parseListaTesto,
+  TIPI_INTERVENTO,
+} from "@/lib/validations/utente";
+import type { PostOpPhase, TipoIntervento } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Configurazione fasi (etichette UI — la config completa è su Firestore)
@@ -50,6 +56,19 @@ function UtenteForm() {
   const [dataNascita, setDataNascita] = useState("");
   const [dataOperazione, setDataOperazione] = useState("");
   const [faseAttualeId, setFaseAttualeId] = useState<PostOpPhase>("fase_1");
+  const [tipoIntervento, setTipoIntervento] = useState<TipoIntervento | "">("");
+  const [pesoIniziale, setPesoIniziale] = useState("");
+  const [altezza, setAltezza] = useState("");
+  const [allergieIntolleranze, setAllergieIntolleranze] = useState("");
+  const [patologieAssociate, setPatologieAssociate] = useState("");
+
+  // Anteprima BMI live — solo se peso e altezza sono entrambi numeri validi
+  const pesoNum = parseFloat(pesoIniziale);
+  const altezzaNum = parseFloat(altezza);
+  const bmiPreview =
+    Number.isFinite(pesoNum) && Number.isFinite(altezzaNum) && altezzaNum > 0
+      ? calcolaBMI(pesoNum, altezzaNum)
+      : null;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -68,16 +87,28 @@ function UtenteForm() {
       return;
     }
 
+    const parsed = utenteProfileSchema.safeParse({
+      nome: nome.trim(),
+      cognome: cognome.trim(),
+      dataNascita,
+      dataOperazione,
+      faseAttualeId,
+      tipoIntervento: tipoIntervento || undefined,
+      pesoIniziale: pesoNum,
+      altezza: altezzaNum,
+      allergieIntolleranze: parseListaTesto(allergieIntolleranze),
+      patologieAssociate: parseListaTesto(patologieAssociate),
+    });
+
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Dati del form non validi.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const utenteId = await addUtente(user.uid, {
-        nome: nome.trim(),
-        cognome: cognome.trim(),
-        dataNascita,
-        dataOperazione,
-        faseAttualeId,
-      });
+      const utenteId = await addUtente(user.uid, parsed.data);
 
       // Aggiorna l'UtenteContext con la nuova lista
       await refetch();
@@ -195,6 +226,125 @@ function UtenteForm() {
             onChange={(e) => setDataOperazione(e.target.value)}
             max={new Date().toISOString().split("T")[0]}
             className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:opacity-50 [color-scheme:dark]"
+            disabled={loading}
+          />
+        </div>
+
+        {/* Tipo di intervento */}
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-slate-300">
+            <Stethoscope size={14} className="inline mr-1.5 text-slate-400" />
+            Tipo di intervento
+          </label>
+          <div className="space-y-2">
+            {TIPI_INTERVENTO.map((tipo) => (
+              <label
+                key={tipo.value}
+                htmlFor={`tipo-${tipo.value}`}
+                className={`
+                  flex items-center gap-3
+                  rounded-xl border px-4 py-3
+                  cursor-pointer transition-all duration-150
+                  ${tipoIntervento === tipo.value
+                    ? "border-blue-500 bg-blue-900/30"
+                    : "border-slate-700 bg-slate-800/40 hover:border-slate-600"
+                  }
+                `}
+              >
+                <input
+                  type="radio"
+                  id={`tipo-${tipo.value}`}
+                  name="tipoIntervento"
+                  value={tipo.value}
+                  checked={tipoIntervento === tipo.value}
+                  onChange={() => setTipoIntervento(tipo.value)}
+                  className="accent-blue-500"
+                  disabled={loading}
+                  required
+                />
+                <span className="text-sm font-medium text-slate-200">{tipo.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Peso e altezza (con anteprima BMI) */}
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-slate-300">
+            Dati auxologici
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label htmlFor="paz-peso" className="flex items-center gap-1.5 text-xs text-slate-400">
+                <Scale size={13} /> Peso (kg)
+              </label>
+              <input
+                id="paz-peso"
+                type="number"
+                step="0.1"
+                min="0"
+                required
+                value={pesoIniziale}
+                onChange={(e) => setPesoIniziale(e.target.value)}
+                placeholder="20"
+                className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:opacity-50"
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="paz-altezza" className="flex items-center gap-1.5 text-xs text-slate-400">
+                <Ruler size={13} /> Altezza (cm)
+              </label>
+              <input
+                id="paz-altezza"
+                type="number"
+                step="0.1"
+                min="0"
+                required
+                value={altezza}
+                onChange={(e) => setAltezza(e.target.value)}
+                placeholder="110"
+                className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:opacity-50"
+                disabled={loading}
+              />
+            </div>
+          </div>
+          {bmiPreview !== null && (
+            <p className="text-xs text-slate-400">
+              BMI: <strong className="text-slate-200">{bmiPreview.toFixed(1)}</strong>
+            </p>
+          )}
+        </div>
+
+        {/* Allergie / intolleranze */}
+        <div className="space-y-1.5">
+          <label htmlFor="paz-allergie" className="flex items-center gap-1.5 text-sm font-medium text-slate-300">
+            <ShieldAlert size={14} className="text-slate-400" />
+            Allergie o intolleranze alimentari
+          </label>
+          <textarea
+            id="paz-allergie"
+            rows={2}
+            value={allergieIntolleranze}
+            onChange={(e) => setAllergieIntolleranze(e.target.value)}
+            placeholder="Es. arachidi, lattosio (separati da virgola)"
+            className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:opacity-50"
+            disabled={loading}
+          />
+        </div>
+
+        {/* Patologie associate */}
+        <div className="space-y-1.5">
+          <label htmlFor="paz-patologie" className="block text-sm font-medium text-slate-300">
+            Patologie associate
+          </label>
+          <textarea
+            id="paz-patologie"
+            rows={2}
+            value={patologieAssociate}
+            onChange={(e) => setPatologieAssociate(e.target.value)}
+            placeholder="Es. asma, dermatite atopica (separate da virgola)"
+            className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:opacity-50"
             disabled={loading}
           />
         </div>
