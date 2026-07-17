@@ -66,24 +66,6 @@ export interface UtenteProfile {
 }
 
 // ---------------------------------------------------------------------------
-// Log Diario (parametri vitali)
-// ---------------------------------------------------------------------------
-
-/** Singola voce del diario clinico */
-export interface DiaryLog {
-  id: string;
-  utenteId: string;
-  timestamp: string;          // ISO 8601
-  temperatura?: number;       // °C
-  dolore?: number;            // Scala 0–10
-  sanguinamento: boolean;
-  vomito: boolean;
-  alimentazione?: string;     // Descrizione libera
-  note?: string;
-  createdByUid: string;
-}
-
-// ---------------------------------------------------------------------------
 // Prescrizioni Mediche
 // ---------------------------------------------------------------------------
 

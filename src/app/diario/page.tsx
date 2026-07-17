@@ -3,7 +3,7 @@
  * @description Pagina Diario Clinico — placeholder per sprint futuro.
  *
  * TODO:
- * - [ ] Lista cronologica dei log (DiaryLog[])
+ * - [ ] Lista cronologica dei log (DailyLog[], vedi @/lib/validations/diary)
  * - [ ] Filtri per data
  * - [ ] Grafico andamento temperatura / dolore
  * - [ ] Link a /diario/nuovo

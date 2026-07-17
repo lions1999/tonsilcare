@@ -171,6 +171,18 @@ import type { DailyLogFormData, DailyLog } from "../validations/diary";
 import { limit } from "firebase/firestore";
 
 /**
+ * Rimuove le chiavi con valore `undefined` da un oggetto. Firestore rifiuta
+ * `undefined` come valore di campo in addDoc/setDoc (a differenza di `null`),
+ * quindi i campi opzionali non compilati vanno omessi esplicitamente invece
+ * di essere inviati con valore `undefined`.
+ */
+function omitUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== undefined)
+  ) as Partial<T>;
+}
+
+/**
  * Aggiunge un log giornaliero nella sub-collection /diario dell'utente.
  */
 export async function addDailyLog(
@@ -180,7 +192,7 @@ export async function addDailyLog(
 ): Promise<string> {
   const logsRef = collection(db, "utenti", utenteId, "diario");
   const docRef = await addDoc(logsRef, {
-    ...logData,
+    ...omitUndefined(logData),
     createdByUid: uid,
     createdAt: serverTimestamp(),
   });
