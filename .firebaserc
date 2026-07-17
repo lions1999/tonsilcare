@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "tonsilcare-app"
+    "default": "tonsilcare-dev",
+    "dev": "tonsilcare-dev",
+    "prod": "tonsilcare-app"
   }
 }
