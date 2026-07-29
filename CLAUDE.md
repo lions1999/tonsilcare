@@ -38,7 +38,7 @@ Il rename da "Paziente" a "Utente" (commit `e4af1ac`) non è mai stato completat
 - redirect rotto post-registrazione verso `/pazienti/nuovo` (404);
 - `PROTECTED_ROUTES` nel middleware (`src/proxy.ts`) con `/pazienti` invece di `/utenti`, e senza `/impostazioni`/`/studio` — route autenticate raggiungibili senza login.
 
-Un residuo simile, non ancora toccato: `firestore.indexes.json` ha un indice orfano su `collectionGroup: "pazienti"` con campo `parenteUid` (nessuna query lo usa più). **Qualsiasi nuova feature che tocca route, naming o path in questo repo va controllata con sospetto per residui analoghi** — non dare per scontato che un rename storico sia stato applicato ovunque.
+Un quarto residuo, risolto poco dopo (commit `e219ff3`): `firestore.indexes.json` aveva un indice orfano su `collectionGroup: "pazienti"` con campo `parenteUid`, che nessuna query usava più; oggi il file è vuoto (`{"indexes": [], "fieldOverrides": []}`). **Qualsiasi nuova feature che tocca route, naming o path in questo repo va controllata con sospetto per residui analoghi** — non dare per scontato che un rename storico sia stato applicato ovunque.
 
 ## Stato feature: alert clinici (P0-4)
 
