@@ -7,26 +7,33 @@
 
 import { WifiOff, RefreshCcw, Home } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+/**
+ * Sottoscrive gli eventi di rete del browser.
+ * Fuori dal componente: l'identità della funzione deve restare stabile tra i
+ * render, altrimenti useSyncExternalStore si ri-sottoscrive a ogni giro.
+ */
+function sottoscriviStatoRete(onChange: () => void) {
+  window.addEventListener("online", onChange);
+  window.addEventListener("offline", onChange);
+
+  return () => {
+    window.removeEventListener("online", onChange);
+    window.removeEventListener("offline", onChange);
+  };
+}
 
 export default function OfflinePage() {
-  const [isOnline, setIsOnline] = useState(true);
-
-  useEffect(() => {
-    // Aggiorna lo stato in tempo reale
-    setIsOnline(navigator.onLine);
-
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
+  // `navigator.onLine` è stato esterno a React: useSyncExternalStore è il modo
+  // previsto per leggerlo, e a differenza di useState+useEffect non fa partire
+  // un secondo render subito dopo il mount. Lo snapshot lato server è `true`
+  // perché durante il prerender non esiste `navigator`.
+  const isOnline = useSyncExternalStore(
+    sottoscriviStatoRete,
+    () => navigator.onLine,
+    () => true
+  );
 
   const handleRefresh = () => {
     window.location.reload();
@@ -43,7 +50,7 @@ export default function OfflinePage() {
       </h1>
 
       <p className="mb-8 max-w-xs text-sm leading-relaxed text-slate-400">
-        Sembra che tu non abbia una connessione a internet. Alcune funzioni dell'app potrebbero non essere disponibili finché non torni online.
+        Sembra che tu non abbia una connessione a internet. Alcune funzioni dell&apos;app potrebbero non essere disponibili finché non torni online.
       </p>
 
       {/* Stato Connessione Dinamico */}

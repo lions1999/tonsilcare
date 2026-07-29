@@ -109,7 +109,7 @@ export default function ImpostazioniPage() {
           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-4 font-bold text-red-500 transition-colors hover:bg-red-500/20"
         >
           <LogOut size={20} />
-          Esci dall'Account
+          Esci dall&apos;Account
         </button>
 
       </main>

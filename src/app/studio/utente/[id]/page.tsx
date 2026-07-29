@@ -7,7 +7,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   Loader2,
@@ -46,7 +46,6 @@ import type { DailyLog } from "@/lib/validations/diary";
 
 export default function UtenteDettaglioMedico() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const { user, accountProfile } = useAuth();
   
   const [loading, setLoading] = useState(true);
@@ -327,7 +326,7 @@ export default function UtenteDettaglioMedico() {
                     {log.vomito && <p className="text-red-400 flex items-center gap-1"><AlertCircle size={10} /> Vomito riportato</p>}
                     {log.rifiutoCibo && <p className="text-orange-400 flex items-center gap-1"><UtensilsCrossed size={10} /> Rifiuto del cibo</p>}
                     {log.nausea && <p className="text-lime-400 flex items-center gap-1"><Meh size={10} /> Nausea</p>}
-                    {log.note && <p className="text-slate-400 mt-2 bg-slate-950/50 p-2 rounded-lg italic">"{log.note}"</p>}
+                    {log.note && <p className="text-slate-400 mt-2 bg-slate-950/50 p-2 rounded-lg italic">&quot;{log.note}&quot;</p>}
                   </div>
                 </div>
               ))}

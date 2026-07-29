@@ -6,10 +6,11 @@
 import { z } from "zod";
 
 export const dailyLogSchema = z.object({
-  temperatura: z.number({
-    required_error: "La temperatura è obbligatoria",
-    invalid_type_error: "La temperatura deve essere un numero",
-  } as any)
+  // `required_error` / `invalid_type_error` sono API Zod 3: in Zod 4 sono
+  // sostituiti dal singolo `error`. Erano tenuti in piedi da un `as any`, quindi
+  // i due messaggi non sono mai arrivati a runtime. Stessa forma usata in
+  // validations/utente.ts.
+  temperatura: z.number({ error: "La temperatura è obbligatoria e deve essere un numero" })
     .min(34, "La temperatura minima è 34°C")
     .max(42, "La temperatura massima è 42°C"),
   
@@ -66,7 +67,19 @@ export const dailyLogSchema = z.object({
   note: z.string().max(500, "Le note non possono superare i 500 caratteri").optional().default(""),
 });
 
+/**
+ * Valori del form DOPO la validazione: i campi con `.default()` sono garantiti.
+ * È il tipo che arriva all'handler di submit.
+ */
 export type DailyLogFormData = z.infer<typeof dailyLogSchema>;
+
+/**
+ * Valori del form PRIMA della validazione: i campi con `.default()` sono ancora
+ * opzionali. È il tipo con cui react-hook-form gestisce i field mentre l'utente
+ * compila, e va tenuto distinto da DailyLogFormData — confonderli è ciò che
+ * rendeva necessario un `as any` sul resolver.
+ */
+export type DailyLogFormInput = z.input<typeof dailyLogSchema>;
 
 // Tipo per Firestore (include i metadati di sistema)
 export interface DailyLog extends DailyLogFormData {

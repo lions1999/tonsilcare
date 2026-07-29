@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Artefatti generati da next-pwa a ogni build (vedi .gitignore): sono
+    // bundle minificati di workbox, lintarli produce solo rumore.
+    "public/sw.js",
+    "public/workbox-*.js",
+    "public/fallback-*.js",
   ]),
 ]);
 
