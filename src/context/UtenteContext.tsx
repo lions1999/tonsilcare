@@ -18,9 +18,9 @@
 import {
   createContext,
   useContext,
-  useState,
-  useEffect,
+  useMemo,
   useCallback,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useUtenti } from "@/hooks/useUtenti";
@@ -31,6 +31,45 @@ import type { UtenteProfile } from "@/types";
 // ---------------------------------------------------------------------------
 
 const STORAGE_KEY = "tonsilcare_active_utente_id";
+
+// ---------------------------------------------------------------------------
+// Lettura dell'id salvato come "external store"
+// ---------------------------------------------------------------------------
+//
+// localStorage è stato esterno a React: useSyncExternalStore è il modo previsto
+// per leggerlo senza passare da useState+useEffect, che richiederebbe una
+// setState sincrona nell'effect (react-hooks/set-state-in-effect) e un render
+// in più dopo il mount.
+//
+// L'evento "storage" copre solo le altre schede, quindi teniamo un set di
+// iscritti da notificare a mano quando siamo noi a scrivere.
+
+const iscritti = new Set<() => void>();
+
+function sottoscriviIdSalvato(onChange: () => void) {
+  iscritti.add(onChange);
+  window.addEventListener("storage", onChange);
+
+  return () => {
+    iscritti.delete(onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+/** Snapshot lato client. */
+function leggiIdSalvato(): string | null {
+  return localStorage.getItem(STORAGE_KEY);
+}
+
+/** Snapshot lato server: durante il prerender non esiste localStorage. */
+function leggiIdSalvatoSuServer(): string | null {
+  return null;
+}
+
+function scriviIdSalvato(id: string) {
+  localStorage.setItem(STORAGE_KEY, id);
+  for (const notifica of iscritti) notifica();
+}
 
 // ---------------------------------------------------------------------------
 // Tipo del context
@@ -63,45 +102,32 @@ const UtenteContext = createContext<UtenteContextValue | undefined>(undefined);
 
 export function UtenteProvider({ children }: { children: ReactNode }) {
   const { utenti, loading, error, refetch } = useUtenti();
-  const [activeUtenteState, setActiveUtenteState] = useState<UtenteProfile | null>(null);
-  // Traccia se il localStorage è stato letto (per evitare hydration mismatch)
-  const [hydrated, setHydrated] = useState(false);
+
+  const idSalvato = useSyncExternalStore(
+    sottoscriviIdSalvato,
+    leggiIdSalvato,
+    leggiIdSalvatoSuServer
+  );
 
   /**
-   * Dopo il mount, legge l'utente attivo dal localStorage.
-   * Se non è salvato o non esiste più nella lista, usa il primo della lista.
+   * L'utente attivo è derivato, non sincronizzato: si ricalcola da solo quando
+   * cambia la lista o l'id salvato, senza effect. Se l'id salvato non esiste più
+   * nella lista (utente eliminato da un altro dispositivo) si ripiega sul primo.
    */
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    // Aspetta sia il mount lato client che il caricamento degli utenti
-    if (!hydrated || loading) return;
-
-    if (utenti.length === 0) {
-      setActiveUtenteState(null);
-      return;
-    }
-
-    const savedId = localStorage.getItem(STORAGE_KEY);
-    const restored = savedId
-      ? utenti.find((u) => u.id === savedId) ?? utenti[0]
-      : utenti[0];
-
-    setActiveUtenteState(restored ?? null);
-  }, [hydrated, loading, utenti]);
+  const activeUtente = useMemo<UtenteProfile | null>(() => {
+    if (loading || utenti.length === 0) return null;
+    return utenti.find((u) => u.id === idSalvato) ?? utenti[0] ?? null;
+  }, [loading, utenti, idSalvato]);
 
   const setActiveUtente = useCallback((utente: UtenteProfile) => {
-    setActiveUtenteState(utente);
-    localStorage.setItem(STORAGE_KEY, utente.id);
+    scriviIdSalvato(utente.id);
   }, []);
 
   return (
     <UtenteContext.Provider
       value={{
         utenti,
-        activeUtente: activeUtenteState,
+        activeUtente,
         setActiveUtente,
         loading,
         error,

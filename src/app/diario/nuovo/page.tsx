@@ -31,7 +31,11 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useUtente } from "@/context/UtenteContext";
 import { addDailyLog, getMedicalAlerts, markNuovoLogNonLetto } from "@/lib/firebase/firestore";
-import { dailyLogSchema, type DailyLogFormData } from "@/lib/validations/diary";
+import {
+  dailyLogSchema,
+  type DailyLogFormData,
+  type DailyLogFormInput,
+} from "@/lib/validations/diary";
 import { parseListaTesto } from "@/lib/validations/utente";
 import type { MedicalAlerts } from "@/types";
 
@@ -61,8 +65,10 @@ export default function NuovoLogPage() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<DailyLogFormData>({
-    resolver: zodResolver(dailyLogSchema) as any,
+    // I tre generici distinguono i valori in compilazione (default non ancora
+    // applicati) da quelli che escono dalla validazione e arrivano a processLog.
+  } = useForm<DailyLogFormInput, unknown, DailyLogFormData>({
+    resolver: zodResolver(dailyLogSchema),
     defaultValues: {
       temperatura: 36.5,
       dolore: 0,
@@ -74,7 +80,6 @@ export default function NuovoLogPage() {
     },
   });
 
-  const watchTemperatura = watch("temperatura");
   const watchDolore = watch("dolore");
   const watchDoloreDeglutizione = watch("doloreDeglutizione");
   const watchQualitaSonno = watch("qualitaSonno");

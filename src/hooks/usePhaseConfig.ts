@@ -125,40 +125,60 @@ export function usePhaseConfig(faseId: PostOpPhase | null): UsePhaseConfigResult
   const [error, setError] = useState<string | null>(null);
   const [isFromFirestore, setIsFromFirestore] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (!faseId) {
-      setPhaseConfig(null);
-      setLoading(false);
-      return;
-    }
-
+  // Al cambio di fase lo spinner va rialzato subito. React prevede di farlo
+  // durante il render, non dentro un effect: qui la setState non incatena un
+  // render extra perché avviene prima che questo venga commesso.
+  const [faseCaricata, setFaseCaricata] = useState(faseId);
+  if (faseCaricata !== faseId) {
+    setFaseCaricata(faseId);
     setLoading(true);
     setError(null);
+  }
 
-    async function load() {
-      if (!faseId) return;
+  // Ogni setState avviene nella continuazione asincrona: aggiornare lo stato in
+  // modo sincrono qui incatenerebbe un secondo render allo stesso commit
+  // (react-hooks/set-state-in-effect).
+  useEffect(() => {
+    let annullato = false;
+
+    const richiedi = async (): Promise<{
+      config: PostOpPhaseConfig | null;
+      daFirestore: boolean;
+      errore: string | null;
+    }> => {
+      if (!faseId) return { config: null, daFirestore: false, errore: null };
+
       try {
         const config = await getPhaseConfig(faseId);
-        if (config) {
-          setPhaseConfig(config);
-          setIsFromFirestore(true);
-        } else {
-          // Firestore non ha ancora questo documento → usa il fallback locale
-          setPhaseConfig(FALLBACK_PHASES[faseId]);
-          setIsFromFirestore(false);
-        }
+        if (config) return { config, daFirestore: true, errore: null };
+        // Firestore non ha ancora questo documento → usa il fallback locale
+        return {
+          config: FALLBACK_PHASES[faseId],
+          daFirestore: false,
+          errore: null,
+        };
       } catch (err) {
         console.error("[usePhaseConfig] Errore:", err);
-        setError("Impossibile caricare la configurazione della fase.");
         // Anche in caso di errore, mostra il fallback per non bloccare l'UI
-        setPhaseConfig(FALLBACK_PHASES[faseId]);
-        setIsFromFirestore(false);
-      } finally {
-        setLoading(false);
+        return {
+          config: FALLBACK_PHASES[faseId],
+          daFirestore: false,
+          errore: "Impossibile caricare la configurazione della fase.",
+        };
       }
-    }
+    };
 
-    load();
+    richiedi().then(({ config, daFirestore, errore }) => {
+      if (annullato) return;
+      setPhaseConfig(config);
+      setIsFromFirestore(daFirestore);
+      setError(errore);
+      setLoading(false);
+    });
+
+    return () => {
+      annullato = true;
+    };
   }, [faseId]);
 
   return { phaseConfig, loading, error, isFromFirestore };

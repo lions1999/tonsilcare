@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronLeft, Clock, Info, CheckCircle2, ListOrdered, List } from "lucide-react";
+import { ChevronLeft, Info, CheckCircle2, ListOrdered, List } from "lucide-react";
 import { useRecipe } from "@/hooks/useRecipe";
 
 export default function DettaglioRicettaPage() {

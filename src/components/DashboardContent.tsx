@@ -27,7 +27,6 @@ import {
   AlertTriangle,
   Clock,
   Heart,
-  Loader2,
   RefreshCw,
 } from "lucide-react";
 
@@ -359,11 +358,27 @@ export default function DashboardContent() {
   }, []);
 
   useEffect(() => {
-    if (activeUtente) {
-      getPrescrizioni(activeUtente.id).then(setPrescrizioni).catch(console.error);
-    } else {
-      setPrescrizioni([]);
-    }
+    const utenteId = activeUtente?.id;
+    let annullato = false;
+
+    // Anche il caso "nessun utente attivo" passa da una Promise: azzerare le
+    // prescrizioni in modo sincrono qui incatenerebbe un secondo render allo
+    // stesso commit (react-hooks/set-state-in-effect).
+    const richiesta = utenteId
+      ? getPrescrizioni(utenteId)
+      : Promise.resolve<Prescrizione[]>([]);
+
+    richiesta
+      .then((dati) => {
+        if (!annullato) setPrescrizioni(dati);
+      })
+      .catch((err) => {
+        if (!annullato) console.error(err);
+      });
+
+    return () => {
+      annullato = true;
+    };
   }, [activeUtente?.id]);
 
   // ---- STATI DI CARICAMENTO ----
