@@ -1,10 +1,16 @@
 // next.config.mjs
 // Configurazione Next.js con next-pwa per il supporto PWA
 //
-// NOTA: next-pwa usa webpack per generare il Service Worker.
-// In Next.js 16+ con Turbopack come default, è necessario disabilitarlo
-// esplicitamente per compatibilità con next-pwa.
-// In produzione (next build) webpack viene usato automaticamente.
+// NOTA: next-pwa genera il Service Worker come plugin webpack, quindi gira
+// SOLO se il build usa webpack. In Next.js 16 il bundler di default è
+// Turbopack anche per `next build`: con Turbopack la config di next-pwa
+// viene ignorata in silenzio (build "riuscito", ma nessun public/sw.js).
+// Per questo lo script di build in package.json passa `--webpack`.
+// Se un giorno si toglie quel flag, la PWA smette di funzionare senza errori:
+// verificare sempre che `npm run build` produca public/sw.js.
+//
+// In sviluppo next-pwa è disabilitato (vedi `disable` sotto), quindi `next dev`
+// può continuare a usare Turbopack senza problemi.
 
 import withPWAInit from "next-pwa";
 

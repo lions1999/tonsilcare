@@ -1,5 +1,13 @@
 @AGENTS.md
 
+## Build: `--webpack` obbligatorio, altrimenti la PWA sparisce in silenzio (2026-07-29)
+
+`next-pwa` genera il service worker come **plugin webpack**. In Next.js 16 il bundler di default è Turbopack anche per `next build`: sotto Turbopack la config di `next-pwa` viene ignorata senza alcun errore — il build dice "riuscito", ma `public/sw.js` non viene creato e l'app non ha né offline né caching. Il progetto è nato direttamente su Next 16, quindi la PWA **non ha mai funzionato** fino al fix; il commento in `next.config.mjs` sosteneva il contrario ("in produzione webpack viene usato automaticamente"), vero solo fino a Next 15.
+
+Per questo `package.json` ha `"build": "next build --webpack"`. Non togliere quel flag. `next dev` può restare su Turbopack perché `next-pwa` è disabilitato in sviluppo (`disable: NODE_ENV === "development"`).
+
+Verifica dopo qualsiasi modifica alla toolchain di build: `npm run build` deve produrre `public/sw.js`, `public/workbox-*.js` e `public/fallback-*.js` (tutti gitignored). Se mancano, la PWA è morta anche se il build è verde. Questo è lo stesso pattern di fallimento silenzioso di `/config/alerts` (vedi sezione sul seeding): **niente crash, comportamento sbagliato**.
+
 ## Firebase: dev vs produzione
 
 Esistono due progetti Firebase separati (alias in `.firebaserc`):
