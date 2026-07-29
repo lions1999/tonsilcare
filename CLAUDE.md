@@ -1,5 +1,13 @@
 @AGENTS.md
 
+## Build: `--webpack` obbligatorio, altrimenti la PWA sparisce in silenzio (2026-07-29)
+
+`next-pwa` genera il service worker come **plugin webpack**. In Next.js 16 il bundler di default è Turbopack anche per `next build`: sotto Turbopack la config di `next-pwa` viene ignorata senza alcun errore — il build dice "riuscito", ma `public/sw.js` non viene creato e l'app non ha né offline né caching. Il progetto è nato direttamente su Next 16, quindi la PWA **non ha mai funzionato** fino al fix; il commento in `next.config.mjs` sosteneva il contrario ("in produzione webpack viene usato automaticamente"), vero solo fino a Next 15.
+
+Per questo `package.json` ha `"build": "next build --webpack"`. Non togliere quel flag. `next dev` può restare su Turbopack perché `next-pwa` è disabilitato in sviluppo (`disable: NODE_ENV === "development"`).
+
+Verifica dopo qualsiasi modifica alla toolchain di build: `npm run build` deve produrre `public/sw.js`, `public/workbox-*.js` e `public/fallback-*.js` (tutti gitignored). Se mancano, la PWA è morta anche se il build è verde. Questo è lo stesso pattern di fallimento silenzioso di `/config/alerts` (vedi sezione sul seeding): **niente crash, comportamento sbagliato**.
+
 ## Firebase: dev vs produzione
 
 Esistono due progetti Firebase separati (alias in `.firebaserc`):
@@ -38,7 +46,7 @@ Il rename da "Paziente" a "Utente" (commit `e4af1ac`) non è mai stato completat
 - redirect rotto post-registrazione verso `/pazienti/nuovo` (404);
 - `PROTECTED_ROUTES` nel middleware (`src/proxy.ts`) con `/pazienti` invece di `/utenti`, e senza `/impostazioni`/`/studio` — route autenticate raggiungibili senza login.
 
-Un residuo simile, non ancora toccato: `firestore.indexes.json` ha un indice orfano su `collectionGroup: "pazienti"` con campo `parenteUid` (nessuna query lo usa più). **Qualsiasi nuova feature che tocca route, naming o path in questo repo va controllata con sospetto per residui analoghi** — non dare per scontato che un rename storico sia stato applicato ovunque.
+Un quarto residuo, risolto poco dopo (commit `e219ff3`): `firestore.indexes.json` aveva un indice orfano su `collectionGroup: "pazienti"` con campo `parenteUid`, che nessuna query usava più; oggi il file è vuoto (`{"indexes": [], "fieldOverrides": []}`). **Qualsiasi nuova feature che tocca route, naming o path in questo repo va controllata con sospetto per residui analoghi** — non dare per scontato che un rename storico sia stato applicato ovunque.
 
 ## Stato feature: alert clinici (P0-4)
 
