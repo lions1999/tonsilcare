@@ -24,14 +24,24 @@ import { useAuth } from "@/context/AuthContext";
 import BottomNav from "@/components/BottomNav";
 import DesktopTopBar from "@/components/DesktopTopBar";
 import DesktopSidebar from "@/components/DesktopSidebar";
+import ProfiloNonDisponibile from "@/components/ProfiloNonDisponibile";
 
 export default function AppShell({ children }: { children: ReactNode }) {
-  const { user, accountProfile, loading } = useAuth();
+  const { user, accountProfile, loading, profiloNonDisponibile } = useAuth();
 
   // Senza sessione (o mentre la si risolve) niente chrome: le rotte pubbliche
   // sono /login e /registrazione, dove ogni destinazione rimbalzerebbe indietro.
   const autenticato = !loading && !!user;
   const isMedico = accountProfile?.ruolo === "medico";
+
+  // Sessione valida ma ruolo ignoto (profilo non caricabile o inesistente).
+  // Non ripieghiamo sulla navigazione del genitore: sarebbe una UI sbagliata
+  // con l'aria di essere quella giusta, e un medico si troverebbe davanti
+  // l'interfaccia dei pazienti senza capire perché. Meglio fermarsi, dirlo, e
+  // dare una via d'uscita.
+  if (autenticato && profiloNonDisponibile) {
+    return <ProfiloNonDisponibile />;
+  }
 
   return (
     <div className="lg:flex">

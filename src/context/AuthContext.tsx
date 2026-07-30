@@ -42,6 +42,16 @@ interface AuthContextValue {
   accountProfile: AccountProfile | null;
   /** True mentre Firebase risolve lo stato di autenticazione iniziale */
   loading: boolean;
+  /**
+   * True quando esiste una sessione valida ma il profilo — e quindi il ruolo —
+   * non è disponibile: fetch fallita, oppure documento `accounts/{uid}`
+   * inesistente. Sono due strade diverse allo stesso punto cieco: senza ruolo
+   * l'app non può decidere che interfaccia mostrare, e indovinare significa
+   * mostrarne una sbagliata con l'aria di essere quella giusta.
+   */
+  profiloNonDisponibile: boolean;
+  /** Ritenta il caricamento del profilo per l'utente corrente */
+  ricaricaProfilo: () => Promise<void>;
   /** Effettua il logout e reindirizza alla pagina di login */
   signOut: () => Promise<void>;
 }
@@ -60,6 +70,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profiloNonDisponibile, setProfiloNonDisponibile] = useState(false);
+
+  const pulisciCookieRuolo = () => {
+    document.cookie = `__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure`;
+  };
+
+  /**
+   * Carica il profilo dell'account e allinea il cookie __role.
+   *
+   * Estratta dal listener perché serve anche al retry manuale: un errore di
+   * rete non deve costringere l'utente a rifare il login.
+   *
+   * Nota: `getAccountProfile` non lancia se il documento non esiste, restituisce
+   * `null`. Ai fini di questa app i due casi sono lo stesso problema — nessun
+   * ruolo — quindi convergono entrambi su `profiloNonDisponibile`.
+   */
+  const caricaProfilo = useCallback(async (uid: string) => {
+    try {
+      const profile = await getAccountProfile(uid);
+      setAccountProfile(profile);
+
+      if (profile?.ruolo) {
+        setProfiloNonDisponibile(false);
+        document.cookie = `__role=${profile.ruolo}; path=/; SameSite=Strict; Secure`;
+      } else {
+        setProfiloNonDisponibile(true);
+        pulisciCookieRuolo();
+      }
+    } catch (error) {
+      console.error("[AuthContext] Errore caricamento profilo:", error);
+      setAccountProfile(null);
+      setProfiloNonDisponibile(true);
+      pulisciCookieRuolo();
+    }
+  }, []);
 
   useEffect(() => {
     /**
@@ -71,24 +116,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        // Carica il profilo Firestore dell'account
-        try {
-          const profile = await getAccountProfile(firebaseUser.uid);
-          setAccountProfile(profile);
-          
-          // Imposta il cookie __role per il middleware
-          if (profile?.ruolo) {
-            document.cookie = `__role=${profile.ruolo}; path=/; SameSite=Strict; Secure`;
-          }
-        } catch (error) {
-          console.error("[AuthContext] Errore caricamento profilo:", error);
-          setAccountProfile(null);
-          document.cookie = `__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure`;
-        }
+        // `setLoading(false)` resta dopo l'await: finché il profilo non è
+        // risolto lo stato è "in caricamento", mai "caricato senza ruolo".
+        await caricaProfilo(firebaseUser.uid);
       } else {
         setAccountProfile(null);
-        // Pulisci il cookie __role se l'utente non è loggato
-        document.cookie = `__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure`;
+        setProfiloNonDisponibile(false);
+        pulisciCookieRuolo();
       }
 
       setLoading(false);
@@ -96,7 +130,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Cleanup: disiscrivi il listener quando il componente smonta
     return () => unsubscribe();
-  }, []);
+  }, [caricaProfilo]);
+
+  /**
+   * Ritenta il caricamento del profilo. Non tocca `loading`: quello stato
+   * significa "sto risolvendo l'autenticazione" e nasconde ogni chrome, mentre
+   * qui l'utente è già davanti a una schermata di errore che gestisce da sé
+   * l'indicazione di attesa.
+   */
+  const ricaricaProfilo = useCallback(async () => {
+    if (!user) return;
+    await caricaProfilo(user.uid);
+  }, [user, caricaProfilo]);
 
   const router = useRouter();
 
@@ -108,7 +153,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 3. Pulisci lo stato locale e i cookie
     setUser(null);
     setAccountProfile(null);
-    document.cookie = `__role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure`;
+    setProfiloNonDisponibile(false);
+    pulisciCookieRuolo();
     // 4. Redirect al login
     router.push("/login");
     router.refresh();
@@ -120,6 +166,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         accountProfile,
         loading,
+        profiloNonDisponibile,
+        ricaricaProfilo,
         signOut: handleSignOut,
       }}
     >
