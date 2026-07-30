@@ -40,6 +40,7 @@ import { calcolaGiornoPostOp } from "@/lib/utils/paziente";
 import { TIPI_INTERVENTO } from "@/lib/validations/utente";
 import EmptyState from "@/components/EmptyState";
 import UserMenu from "@/components/UserMenu";
+import UtenteSwitcher from "@/components/UtenteSwitcher";
 
 import type { MedicalAlerts, UtenteProfile, PostOpPhaseConfig, Prescrizione } from "@/types";
 import { getPrescrizioni } from "@/lib/firebase/firestore";
@@ -441,11 +442,25 @@ export default function DashboardContent() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-slate-500">Bentornato,</p>
+            {/*
+              Il saluto usa il nome del genitore, come già faceva l'header dello
+              stato vuoto: l'identità del bambino è ora portata dallo switcher qui
+              sotto, che altrimenti ripeterebbe lo stesso nome a pochi pixel di
+              distanza.
+            */}
             <h1 className="text-lg font-bold leading-tight text-white">
-              Genitore di {activeUtente.nome} 👋
+              {accountProfile?.nome ?? "Genitore"} 👋
             </h1>
           </div>
           <UserMenu />
+        </div>
+
+        {/*
+          Selettore del bambino attivo. Va mostrato a ogni larghezza: senza, un
+          genitore con più figli non ha alcun modo di cambiare paziente.
+        */}
+        <div className="mt-3">
+          <UtenteSwitcher />
         </div>
       </header>
 
