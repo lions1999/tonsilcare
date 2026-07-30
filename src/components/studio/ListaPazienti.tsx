@@ -10,6 +10,7 @@
 
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Loader2, Activity, CheckCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useStudioPazienti } from "@/context/StudioPazientiContext";
@@ -18,7 +19,15 @@ import SearchAndFilterBar from "@/components/studio/SearchAndFilterBar";
 import EmptyState from "@/components/EmptyState";
 
 export default function ListaPazienti() {
+  const pathname = usePathname();
   const { accountProfile, signOut } = useAuth();
+
+  // Quale paziente è aperto nel pannello destro. Ricavato dalla rotta e non da
+  // uno stato locale: la rotta è già la fonte di verità della selezione, e così
+  // l'evidenziazione è corretta anche arrivando da un deep link o da un reload.
+  const utenteIdAperto = pathname.startsWith("/studio/utente/")
+    ? pathname.split("/")[3]
+    : null;
   const {
     pazienti,
     pazientiFiltrati,
@@ -35,15 +44,15 @@ export default function ListaPazienti() {
   return (
     <div className="min-h-dvh bg-slate-950 pb-20 lg:min-h-0 lg:pb-0">
       {/* Header Medico */}
-      <header className="sticky top-0 z-10 border-b border-slate-800/60 bg-slate-950/80 px-4 py-4 backdrop-blur-xl">
+      <header className="sticky top-0 z-10 border-b border-slate-800/60 bg-slate-950/80 px-4 py-4 backdrop-blur-xl lg:px-3 lg:py-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/20 border border-indigo-500/30">
-              <Activity size={20} className="text-indigo-400" />
+          <div className="flex items-center gap-3 lg:gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/20 border border-indigo-500/30 lg:h-8 lg:w-8 lg:rounded-lg">
+              <Activity size={20} className="text-indigo-400 lg:h-4 lg:w-4" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">Control Room</h1>
-              <p className="text-xs text-slate-400">
+              <h1 className="text-lg font-bold text-white lg:text-sm">Control Room</h1>
+              <p className="text-xs text-slate-400 lg:text-[11px]">
                 Dr. {accountProfile?.cognome}
               </p>
             </div>
@@ -73,8 +82,8 @@ export default function ListaPazienti() {
       </header>
 
       {/* Lista Utenti */}
-      <div className="px-4 py-6">
-        <h2 className="text-sm font-medium text-slate-400 mb-4 uppercase tracking-wider">
+      <div className="px-4 py-6 lg:px-3 lg:py-4">
+        <h2 className="text-sm font-medium text-slate-400 mb-4 uppercase tracking-wider lg:mb-2.5 lg:text-[11px]">
           Utenti in Triage ({pazientiFiltrati.length})
         </h2>
 
@@ -95,9 +104,13 @@ export default function ListaPazienti() {
             onCtaClick={resetFilters}
           />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 lg:space-y-2">
             {pazientiFiltrati.map((utente) => (
-              <PazienteCard key={utente.id} utente={utente} />
+              <PazienteCard
+                key={utente.id}
+                utente={utente}
+                selezionato={utente.id === utenteIdAperto}
+              />
             ))}
           </div>
         )}
