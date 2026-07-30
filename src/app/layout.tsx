@@ -12,7 +12,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import BottomNav from "@/components/BottomNav";
+import AppShell from "@/components/AppShell";
 import { AuthProvider } from "@/context/AuthContext";
 import { UtenteProvider } from "@/context/UtenteContext";
 
@@ -87,8 +87,10 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,       // Disabilita zoom utente (UX app-like)
-  userScalable: false,
+  // `maximumScale: 1` e `userScalable: false` erano qui per un effetto
+  // "app nativa", ma impediscono all'utente di ingrandire la pagina: su
+  // un'app che mostra parametri clinici a genitori e medici è una barriera
+  // di accessibilità, non una rifinitura. Rimossi.
   viewportFit: "cover",  // Contenuto sotto la notch
 };
 
@@ -115,29 +117,13 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body className="font-sans bg-slate-950 text-slate-100">
         <AuthProvider>
           <UtenteProvider>
-
-        {/*
-          Wrapper principale:
-          - max-w-lg: limita la larghezza su desktop (look mobile)
-          - mx-auto: centra il contenitore
-          - min-h-dvh: altezza minima = viewport dinamico (gestisce la tastiera)
-          - pb-16: padding bottom = altezza della BottomNav (64px)
-        */}
-        <div className="relative max-w-lg mx-auto min-h-dvh flex flex-col">
-
-          {/* Contenuto principale scrollabile */}
-          <main
-            id="main-content"
-            className="flex-1 overflow-y-auto pb-20"
-            // pb-20 = 80px per avere spazio sopra la BottomNav
-          >
-            {children}
-          </main>
-
-          {/* Bottom Navigation Bar fissa */}
-          <BottomNav />
-        </div>
-
+            {/*
+              La struttura del guscio (bottom nav su mobile, top bar o sidebar
+              su desktop a seconda del ruolo) dipende dallo stato di
+              autenticazione, che è disponibile solo lato client: vive quindi in
+              AppShell e non qui, dove siamo in un server component.
+            */}
+            <AppShell>{children}</AppShell>
           </UtenteProvider>
         </AuthProvider>
       </body>
