@@ -47,12 +47,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
           Da `lg` in su il tetto dipende dal ruolo, e non è un dettaglio
           estetico: il contenuto del genitore è fatto di card e testo, che oltre
           una certa larghezza diventano righe troppo lunghe da leggere, mentre
-          la Control Room del medico diventerà una tabella e ha bisogno di tutto
-          lo spazio disponibile.
+          la Control Room del medico diventerà una tabella e ha bisogno di spazio.
+
+          Il medico ha comunque un tetto, solo molto più alto. Senza, su un
+          monitor 2560 la riga paziente misura 2236px e su un ultrawide 3440
+          arriva a 3116px: a quelle ampiezze l'occhio perde la corrispondenza
+          tra la prima e l'ultima colonna della stessa riga. 1920px riempie
+          qualsiasi monitor normale senza degenerare.
         */}
         <div
           className={`relative mx-auto flex min-h-dvh max-w-lg flex-col lg:min-h-0 lg:w-full lg:flex-1 lg:px-6 ${
-            isMedico ? "lg:max-w-none" : "lg:max-w-5xl"
+            isMedico ? "lg:max-w-[1920px]" : "lg:max-w-5xl"
           }`}
         >
           <main
