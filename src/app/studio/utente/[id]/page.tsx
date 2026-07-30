@@ -30,6 +30,7 @@ import {
   Smile,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useStudioPazienti } from "@/context/StudioPazientiContext";
 import {
   getUtente,
   getUtenteLogs,
@@ -47,6 +48,7 @@ import type { DailyLog } from "@/lib/validations/diary";
 export default function UtenteDettaglioMedico() {
   const { id } = useParams<{ id: string }>();
   const { user, accountProfile } = useAuth();
+  const { segnaLetto } = useStudioPazienti();
   
   const [loading, setLoading] = useState(true);
   const [utente, setUtente] = useState<UtenteProfile | null>(null);
@@ -78,6 +80,12 @@ export default function UtenteDettaglioMedico() {
             console.error("Errore azzeramento flag haNuovoLogNonLetto:", err)
           );
           setUtente((prev) => (prev ? { ...prev, haNuovoLogNonLetto: false } : prev));
+
+          // Lo stesso aggiornamento va propagato alla lista, che nel layout a
+          // due pannelli resta montata: senza, il badge "novità" rimarrebbe
+          // acceso accanto al paziente che il medico ha appena aperto, e il
+          // filtro "Con novità" continuerebbe a includerlo.
+          segnaLetto(id);
         }
       } catch (err) {
         console.error("Errore recupero utente", err);
@@ -86,7 +94,7 @@ export default function UtenteDettaglioMedico() {
       }
     }
     loadData();
-  }, [id]);
+  }, [id, segnaLetto]);
 
   // Caricamento soglie mediche, per allinearsi alle stesse soglie dinamiche
   // già usate in Control Room (studio/page.tsx) invece di valori hardcoded.
