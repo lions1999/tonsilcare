@@ -118,7 +118,7 @@ export default function RicettePage() {
 
         {/* LOADING STATE */}
         {loading && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <RecipeSkeleton />
             <RecipeSkeleton />
             <RecipeSkeleton />
@@ -151,9 +151,13 @@ export default function RicettePage() {
           </div>
         )}
 
-        {/* GRID RICETTE */}
+        {/*
+          GRID RICETTE — tre colonne da `lg`. Il contenitore del genitore è
+          largo al più 1024px, quindi una quarta colonna comprimerebbe le card
+          sotto la larghezza che serve all'immagine di copertina.
+        */}
         {!loading && filteredRecipes.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredRecipes.map((recipe) => (
               <Link key={recipe.id} href={`/ricette/${recipe.id}`}>
                 <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 transition-all hover:border-teal-500/50 hover:shadow-lg hover:shadow-teal-900/20">

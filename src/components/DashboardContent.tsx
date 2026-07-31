@@ -465,28 +465,45 @@ export default function DashboardContent() {
       </header>
 
       {/* ---- CONTENUTO ---- */}
-      <div className="space-y-4 px-4 py-4">
+      {/*
+        Da `lg` in su le card si dispongono su due colonne: a sinistra lo stato
+        clinico del bambino, a destra ciò che c'è da leggere e da preparare.
+        Allerta e azione principale attraversano entrambe le colonne, perché
+        riguardano la pagina intera e non una delle due metà.
+
+        I raggruppamenti sono scelti in modo da lasciare invariato l'ordine del
+        DOM: srotolando le due colonne si ottiene la sequenza di oggi — allerta,
+        stato, parametri, prescrizioni, piano alimentare, azione — quindi sotto
+        i 1024px la dashboard resta identica.
+
+        `lg:items-start` evita che le due colonne si allunghino alla stessa
+        altezza: sono indipendenti, e la più corta non deve stirarsi.
+      */}
+      <div className="space-y-4 px-4 py-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5 lg:space-y-0">
 
         {/* Banner Alert Medico */}
-        <AlertBanner alerts={alerts} />
+        <div className="lg:col-span-2">
+          <AlertBanner alerts={alerts} />
+        </div>
 
-        {/* Card Stato Utente */}
-        <UtenteStatusCard
-          utente={activeUtente}
-          phase={phaseConfig}
-          giornoPostOp={giornoPostOp}
-        />
+        {/* Colonna sinistra: stato clinico del bambino */}
+        <div className="space-y-4">
+          <UtenteStatusCard
+            utente={activeUtente}
+            phase={phaseConfig}
+            giornoPostOp={giornoPostOp}
+          />
+          <VitalsQuickCard log={latestLog} />
+        </div>
 
-        {/* Card Parametri Vitali */}
-        <VitalsQuickCard log={latestLog} />
-
-        {/* Prescrizioni dal Medico */}
-        <PrescrizioniCard prescrizioni={prescrizioni} />
-
-        {/* Card Piano Alimentare */}
-        <MealPlanCard phase={phaseConfig} />
+        {/* Colonna destra: comunicazioni e indicazioni */}
+        <div className="space-y-4">
+          <PrescrizioniCard prescrizioni={prescrizioni} />
+          <MealPlanCard phase={phaseConfig} />
+        </div>
 
         {/* CTA Aggiungi Log */}
+        <div className="lg:col-span-2">
         <Link
           href="/diario/nuovo"
           id="btn-aggiungi-log"
@@ -507,8 +524,9 @@ export default function DashboardContent() {
           />
           Aggiungi Log Diario
         </Link>
+        </div>
 
-        <div className="h-4" aria-hidden="true" />
+        <div className="h-4 lg:hidden" aria-hidden="true" />
       </div>
     </div>
   );
