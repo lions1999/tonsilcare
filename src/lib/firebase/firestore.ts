@@ -347,6 +347,21 @@ export async function getRecipeById(id: string): Promise<Recipe | null> {
  * Funzione temporanea per il seeding di Firestore.
  * Popola la collezione "ricette" con 3 elementi fittizi.
  */
+/**
+ * Popola /ricette con i contenuti iniziali.
+ *
+ * Le ricette non hanno `urlImmagine`: il campo resta opzionale nel tipo, ma il
+ * seed non lo valorizza. Puntava a tre URL Unsplash, due dei quali avevano già
+ * smesso di rispondere — un seed che rimanda a immagini di terzi produce
+ * contenuti che si rompono col tempo senza che nessuno se ne accorga, e per di
+ * più `next.config.mjs` non autorizza alcuna sorgente remota (`remotePatterns`
+ * vuoto), tanto che il ricettario deve usare un `<img>` grezzo per aggirare il
+ * controllo.
+ *
+ * Senza il campo, le card mostrano il segnaposto già previsto. La scelta
+ * definitiva — asset locali nel repo oppure caricamento dal cliente su Storage
+ * — dipende da chi manterrà il catalogo, e non è ancora decisa.
+ */
 export async function seedInitialRecipes(): Promise<void> {
   const initialRecipes: Omit<Recipe, "id">[] = [
     {
@@ -364,7 +379,6 @@ export async function seedInitialRecipes(): Promise<void> {
         "Riponi nel congelatore per almeno 4 ore o fino a completa solidificazione.",
         "Servi al bambino quando avverte fastidio."
       ],
-      urlImmagine: "https://images.unsplash.com/photo-1558222625-cd1976092040?q=80&w=600&auto=format&fit=crop",
       consistenza: "Liquida"
     },
     {
@@ -383,7 +397,6 @@ export async function seedInitialRecipes(): Promise<void> {
         "Scola le verdure e frullale aggiungendo poco brodo fino ad ottenere una crema liscia senza grumi.",
         "LASCIA RAFFREDDARE completamente fino a temperatura ambiente o tiepida prima di servire."
       ],
-      urlImmagine: "https://images.unsplash.com/photo-1547592180-85f173990554?q=80&w=600&auto=format&fit=crop",
       consistenza: "Semiliquida"
     },
     {
@@ -402,7 +415,6 @@ export async function seedInitialRecipes(): Promise<void> {
         "Se risulta troppo denso, aggiungi un goccio di latte freddo.",
         "Servi in un bicchiere largo (senza cannuccia, che potrebbe creare vuoto e sforzare la gola)."
       ],
-      urlImmagine: "https://images.unsplash.com/photo-1553530666-ba11a90a2a47?q=80&w=600&auto=format&fit=crop",
       consistenza: "Morbida"
     }
   ];
