@@ -8,15 +8,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, User, ChevronDown, Loader2 } from "lucide-react";
+import { LogOut, User, ChevronDown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import BottoneLogout from "@/components/BottoneLogout";
 import { clearRispostaMedicoNonLetta } from "@/lib/firebase/firestore";
 
 export default function UserMenu() {
-  const { user, accountProfile, signOut } = useAuth();
+  const { user, accountProfile } = useAuth();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   // Stato locale per riflettere subito l'azzeramento in UI: accountProfile
   // viene caricato una tantum da AuthContext, non in realtime.
   const [flagCleared, setFlagCleared] = useState(false);
@@ -47,16 +47,6 @@ export default function UserMenu() {
   const nomeDisplay = accountProfile
     ? `${accountProfile.nome} ${accountProfile.cognome}`
     : user.displayName ?? user.email ?? "Genitore";
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await signOut();
-    } catch (err) {
-      console.error("[UserMenu] Errore logout:", err);
-      setLoggingOut(false);
-    }
-  };
 
   return (
     <div className="relative">
@@ -130,19 +120,10 @@ export default function UserMenu() {
 
               <div className="my-1 border-t border-slate-800" />
 
-              <button
-                id="btn-logout"
-                role="menuitem"
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-950/40 transition-colors disabled:opacity-50"
-              >
-                {loggingOut
-                  ? <Loader2 size={14} className="animate-spin" />
-                  : <LogOut size={14} />
-                }
-                {loggingOut ? "Disconnessione…" : "Esci"}
-              </button>
+              <BottoneLogout className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-950/40 transition-colors">
+                <LogOut size={14} />
+                Esci
+              </BottoneLogout>
             </div>
           </div>
         </>

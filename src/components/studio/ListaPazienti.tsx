@@ -11,7 +11,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Loader2, Activity, CheckCircle, LogOut } from "lucide-react";
+import { Loader2, Activity, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useStudioPazienti } from "@/context/StudioPazientiContext";
 import PazienteCard from "@/components/studio/PazienteCard";
@@ -20,7 +20,7 @@ import EmptyState from "@/components/EmptyState";
 
 export default function ListaPazienti() {
   const pathname = usePathname();
-  const { accountProfile, signOut } = useAuth();
+  const { accountProfile } = useAuth();
 
   // Quale paziente è aperto nel pannello destro. Ricavato dalla rotta e non da
   // uno stato locale: la rotta è già la fonte di verità della selezione, e così
@@ -62,18 +62,6 @@ export default function ListaPazienti() {
               </p>
             </div>
           </div>
-          {/*
-            Il logout resta qui e non nella sidebar desktop: è l'unico controllo
-            account del portale medico, e spostarlo lo toglierebbe da mobile,
-            dove la sidebar non esiste.
-          */}
-          <button
-            onClick={signOut}
-            className="rounded-full bg-slate-800/50 p-2 text-slate-400 hover:text-white"
-            aria-label="Esci"
-          >
-            <LogOut size={18} />
-          </button>
         </div>
 
         <SearchAndFilterBar

@@ -19,9 +19,10 @@
 import { useState } from "react";
 import { AlertTriangle, RefreshCcw, LogOut, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import BottoneLogout from "@/components/BottoneLogout";
 
 export default function ProfiloNonDisponibile() {
-  const { ricaricaProfilo, signOut } = useAuth();
+  const { ricaricaProfilo } = useAuth();
   const [inCorso, setInCorso] = useState(false);
   const [tentativoFallito, setTentativoFallito] = useState(false);
 
@@ -78,13 +79,10 @@ export default function ProfiloNonDisponibile() {
           {inCorso ? "Riprovo..." : "Riprova"}
         </button>
 
-        <button
-          onClick={signOut}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-slate-700"
-        >
+        <BottoneLogout className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-slate-700">
           <LogOut size={18} />
           Esci dall&apos;account
-        </button>
+        </BottoneLogout>
       </div>
     </div>
   );

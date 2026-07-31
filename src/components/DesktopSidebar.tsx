@@ -14,8 +14,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity } from "lucide-react";
+import { Activity, LogOut } from "lucide-react";
 import { NAV_ITEMS_MEDICO, isNavItemAttivo } from "@/lib/navItems";
+import BottoneLogout from "@/components/BottoneLogout";
 
 export default function DesktopSidebar() {
   const pathname = usePathname();
@@ -35,7 +36,7 @@ export default function DesktopSidebar() {
         </div>
       </div>
 
-      <nav aria-label="Navigazione principale" className="flex-1 overflow-y-auto p-3">
+      <nav aria-label="Navigazione principale" className="min-h-0 flex-1 overflow-y-auto p-3">
         <ul className="flex flex-col gap-1">
           {NAV_ITEMS_MEDICO.map(({ label, href, icon: Icon, ariaLabel, id }) => {
             const isActive = isNavItemAttivo(href, pathname);
@@ -61,6 +62,22 @@ export default function DesktopSidebar() {
           })}
         </ul>
       </nav>
+
+      {/*
+        L'uscita sta in fondo alla navigazione, separata dalle destinazioni: è
+        un'azione, non un posto dove andare. Prima viveva nell'intestazione
+        della Control Room, dove era l'unico controllo account in mezzo a titolo
+        e filtri.
+      */}
+      <div className="flex-shrink-0 border-t border-slate-800/60 p-3">
+        <BottoneLogout
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:bg-red-950/40 hover:text-red-300 focus-visible:ring-2 focus-visible:ring-red-400"
+          ariaLabel="Esci dall'account"
+        >
+          <LogOut size={18} strokeWidth={1.8} />
+          Esci
+        </BottoneLogout>
+      </div>
     </aside>
   );
 }

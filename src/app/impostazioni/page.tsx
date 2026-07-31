@@ -9,24 +9,19 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, LogOut, User, Mail, Users, Settings } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useUtente } from "@/context/UtenteContext";
-import { auth } from "@/lib/firebase/config";
-import { signOut } from "firebase/auth";
+import BottoneLogout from "@/components/BottoneLogout";
 
 export default function ImpostazioniPage() {
   const router = useRouter();
   const { user, accountProfile } = useAuth();
   const { utenti } = useUtente();
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      // Pulizia cookie o local storage se necessario (è già gestita dall'AuthContext o middleware)
-      document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      router.push("/login");
-    } catch (error) {
-      console.error("Errore durante il logout:", error);
-    }
-  };
+  // Il logout passa da BottoneLogout, che usa il signOut dell'AuthContext.
+  // Qui c'era invece una procedura parallela che chiamava Firebase
+  // direttamente e provava a cancellare un cookie chiamato "session": quello
+  // vero si chiama "__session" e lo azzera solo /api/logout, mai invocato da
+  // questa pagina. Uscendo di qui il cookie di sessione sopravviveva, e per il
+  // proxy l'utente risultava ancora autenticato.
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -104,13 +99,10 @@ export default function ImpostazioniPage() {
         </section>
 
         {/* LOGOUT */}
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-4 font-bold text-red-500 transition-colors hover:bg-red-500/20"
-        >
+        <BottoneLogout className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-4 font-bold text-red-500 transition-colors hover:bg-red-500/20">
           <LogOut size={20} />
           Esci dall&apos;Account
-        </button>
+        </BottoneLogout>
 
       </main>
     </div>
