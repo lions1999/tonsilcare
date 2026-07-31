@@ -44,7 +44,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="lg:flex">
+    /*
+      Da `lg` in su la finestra non scorre più: l'altezza è bloccata a quella
+      del viewport e a scorrere sono i pannelli interni. È ciò che rende
+      indipendenti lista e dettaglio nel portale medico — con un unico
+      scorrimento di pagina, muovere l'uno trascinava anche l'altro.
+      Sotto `lg` resta il normale scorrimento di pagina.
+    */
+    <div className="lg:flex lg:h-dvh lg:overflow-hidden">
       {autenticato && isMedico && <DesktopSidebar />}
 
       <div className="lg:flex lg:min-w-0 lg:flex-1 lg:flex-col">
@@ -70,9 +77,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
             isMedico ? "lg:max-w-[1920px]" : "lg:max-w-5xl"
           }`}
         >
+          {/*
+            `lg:min-h-0` è necessario perché un figlio flex possa scorrere: senza,
+            la sua altezza minima resta quella del contenuto e il pannello cresce
+            invece di scorrere. `lg:pb-0` toglie il fondo che altrimenti farebbe
+            eccedere di qualche decina di pixel i pannelli alti quanto la
+            finestra, rendendo di nuovo scrollabile la pagina.
+          */}
           <main
             id="main-content"
-            className="flex-1 overflow-y-auto pb-20 lg:pb-10"
+            className="flex-1 overflow-y-auto pb-20 lg:min-h-0 lg:pb-0"
           >
             {children}
           </main>

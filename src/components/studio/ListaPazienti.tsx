@@ -42,9 +42,14 @@ export default function ListaPazienti() {
   } = useStudioPazienti();
 
   return (
-    <div className="min-h-dvh bg-slate-950 pb-20 lg:min-h-0 lg:pb-0">
-      {/* Header Medico */}
-      <header className="sticky top-0 z-10 border-b border-slate-800/60 bg-slate-950/80 px-4 py-4 backdrop-blur-xl lg:px-3 lg:py-3">
+    <div className="min-h-dvh bg-slate-950 pb-20 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:pb-0">
+      {/*
+        Header Medico. Su mobile è `sticky` perché scorre la pagina intera; su
+        desktop diventa un fratello flex che non scorre affatto, mentre a
+        scorrere è l'elenco qui sotto. Il risultato è lo stesso — titolo,
+        ricerca e filtri sempre visibili — ma ottenuto senza sovrapposizioni.
+      */}
+      <header className="sticky top-0 z-10 border-b border-slate-800/60 bg-slate-950/80 px-4 py-4 backdrop-blur-xl lg:static lg:flex-shrink-0 lg:px-3 lg:py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 lg:gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/20 border border-indigo-500/30 lg:h-8 lg:w-8 lg:rounded-lg">
@@ -82,7 +87,8 @@ export default function ListaPazienti() {
       </header>
 
       {/* Lista Utenti */}
-      <div className="px-4 py-6 lg:px-3 lg:py-4">
+      {/* L'elenco è l'unica parte che scorre nel pannello lista. */}
+      <div className="px-4 py-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-3 lg:py-4">
         <h2 className="text-sm font-medium text-slate-400 mb-4 uppercase tracking-wider lg:mb-2.5 lg:text-[11px]">
           Utenti in Triage ({pazientiFiltrati.length})
         </h2>
