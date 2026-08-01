@@ -36,8 +36,21 @@ service cloud.firestore {
     // /accounts/{uid} — Profilo genitore o medico
     // -------------------------------------------------------------------------
     match /accounts/{uid} {
-      // Il proprietario può leggere e aggiornare il proprio profilo
-      allow read, update: if isAuthenticated() && isOwner(uid);
+      allow read: if isAuthenticated() && isOwner(uid);
+
+      // Il proprietario aggiorna il proprio profilo, ma SOLO su questi campi.
+      //
+      // Senza l'elenco, `ruolo` era scrivibile dal client: un genitore poteva
+      // promuoversi a medico scrivendo sul proprio documento, e da lì leggere
+      // le schede e i diari di tutti i bambini e scrivere prescrizioni, perché
+      // isMedico() legge esattamente questo campo. La promozione a medico
+      // avviene da Console o Admin SDK, che non passano da queste regole.
+      //
+      // `updatedAt` è in elenco perché è metadato che accompagna qualsiasi
+      // modifica di profilo; non concede privilegi.
+      allow update: if isAuthenticated() && isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['nome', 'cognome', 'haRispostaMedicoNonLetta', 'updatedAt']);
       // Il medico può aggiornare SOLO il flag "risposta non letta" sull'account
       // di un genitore (mai sul proprio), per segnalare una nuova prescrizione.
       allow update: if isAuthenticated() && isMedico() && !isOwner(uid)
@@ -58,8 +71,11 @@ service cloud.firestore {
       // Solo l'account autenticato può creare un utente operato con il proprio UID
       allow create: if isAuthenticated()
         && request.resource.data.accountId == request.auth.uid;
-      // L'account può aggiornare solo i propri utenti operati
-      allow update: if isAuthenticated() && isUtenteAccount(resource.data);
+      // L'account può aggiornare solo i propri utenti operati, e non può
+      // riassegnarli: senza il vincolo su accountId, un genitore poteva
+      // spostare un proprio paziente sotto un altro account.
+      allow update: if isAuthenticated() && isUtenteAccount(resource.data)
+        && request.resource.data.accountId == resource.data.accountId;
       // Il medico può aggiornare SOLO il flag "nuovo log non letto", per
       // azzerarlo quando apre la scheda di questo paziente.
       allow update: if isAuthenticated() && isMedico()
@@ -79,10 +95,20 @@ service cloud.firestore {
         allow create: if isAuthenticated()
           && get(/databases/$(database)/documents/utenti/$(utenteId)).data.accountId == request.auth.uid
           && request.resource.data.createdByUid == request.auth.uid;
-        // Aggiornamento log (es. note aggiuntive)
-        allow update: if isAuthenticated()
-          && get(/databases/$(database)/documents/utenti/$(utenteId)).data.accountId == request.auth.uid;
-        // I log non possono essere cancellati (audit trail medico)
+        // Un log inviato non si modifica e non si cancella: è la registrazione
+        // di cosa è stato osservato in un dato momento, e il medico prende
+        // decisioni su quei valori.
+        //
+        // L'update era aperto senza vincoli, in contraddizione con il delete
+        // bloccato poche righe sotto per "audit trail": si poteva riscrivere un
+        // 40.5°C dopo che il medico l'aveva letto, senza lasciare traccia.
+        //
+        // CHIUSO DELIBERATAMENTE, non per mancanza di casi d'uso: oggi non
+        // esiste alcuna interfaccia di modifica. Va riaperto solo insieme al
+        // design della correzione — entro quanto tempo si può correggere, e
+        // come il medico vede che un valore è stato cambiato — non al primo
+        // bisogno. Vedi CLAUDE.md.
+        allow update: if false;
         allow delete: if false;
       }
 
@@ -118,19 +144,24 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // /ricette/{ricettaId} — Ricette (read-only in prod, write per seeding)
+    // /ricette/{ricettaId} — Ricette (contenuto clinico, sola lettura al client)
+    // Popolate da scripts/seed.mjs con Admin SDK, che non passa da queste regole.
     // -------------------------------------------------------------------------
     match /ricette/{ricettaId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated(); // TODO: rimettere a false dopo il seeding
+      allow write: if false;
     }
 
     // -------------------------------------------------------------------------
-    // /info/{articleId} — Articoli informativi (read-only in prod, write per seeding)
+    // /info/{articleId} — Articoli informativi (idem: sola lettura al client)
+    //
+    // Erano entrambe `write: if isAuthenticated()` con un TODO mai chiuso, cioè
+    // scrivibili e cancellabili da qualunque genitore registrato — comprese le
+    // indicazioni su quando andare in pronto soccorso.
     // -------------------------------------------------------------------------
     match /info/{articleId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated(); // TODO: rimettere a false dopo il seeding
+      allow write: if false;
     }
   }
 }

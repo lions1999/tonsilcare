@@ -8,6 +8,16 @@ Per questo `package.json` ha `"build": "next build --webpack"`. Non togliere que
 
 Verifica dopo qualsiasi modifica alla toolchain di build: `npm run build` deve produrre `public/sw.js`, `public/workbox-*.js` e `public/fallback-*.js` (tutti gitignored). Se mancano, la PWA è morta anche se il build è verde. Questo è lo stesso pattern di fallimento silenzioso di `/config/alerts` (vedi sezione sul seeding): **niente crash, comportamento sbagliato**.
 
+## Firestore rules: cosa è chiuso di proposito (2026-07-30)
+
+Le regole sono state irrigidite dopo un audit. Tre punti non erano marcati da alcun TODO e vanno lasciati come sono, salvo decisione esplicita:
+
+- **`/accounts` update ha una allowlist** (`nome`, `cognome`, `haRispostaMedicoNonLetta`, `updatedAt`). Prima era libera, e `ruolo` era scrivibile dal client: **qualunque genitore poteva promuoversi a medico** scrivendo sul proprio documento, e da lì leggere schede e diari di tutti i bambini e creare prescrizioni, perché `isMedico()` legge esattamente quel campo. La promozione a medico si fa da Console o Admin SDK, che non passano dalle regole. Se serve permettere la modifica di un nuovo campo di profilo, si aggiunge all'elenco — non si riapre l'update.
+- **`/utenti` update vincola `accountId` a restare invariato**, altrimenti un genitore può riassegnare un proprio paziente a un altro account.
+- **`/utenti/{id}/diario/{logId}` ha `allow update: if false`.** Non è una mancanza di casi d'uso: è deliberato. Un log è la registrazione di cosa è stato osservato in un momento, e il medico decide su quei valori; l'update era aperto senza vincoli mentre il delete era già bloccato "per audit trail", quindi si poteva riscrivere un 40.5°C dopo che il medico l'aveva letto, senza lasciare traccia. **Va riaperto solo insieme al design della correzione** — entro quanto tempo si può correggere un log, e come il medico vede che un valore è stato cambiato — da concordare col cliente. Non al primo bisogno, e non nella variante intermedia "solo campi non clinici": quella permetterebbe di correggere una nota ma non un valore digitato male, cioè esattamente il caso in cui la correzione serve.
+
+`/ricette` e `/info` sono passate a `write: if false`, chiudendo un TODO mai fatto che le rendeva scrivibili da qualunque utente autenticato. Il seeding non passa più dal client: vedi la sezione sul seeding.
+
 ## Firebase: dev vs produzione
 
 Esistono due progetti Firebase separati (alias in `.firebaserc`):
