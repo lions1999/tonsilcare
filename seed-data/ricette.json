@@ -1,0 +1,58 @@
+[
+  {
+    "slug": "ghiacciolo-alla-frutta",
+    "titolo": "Ghiacciolo alla Frutta",
+    "descrizione": "Ghiaccioli fatti in casa, perfetti per alleviare il dolore post-operatorio. Senza pezzi per evitare fastidi.",
+    "fasiCompatibili": ["fase_1", "fase_2"],
+    "ingredienti": [
+      "100ml Succo di mela limpido",
+      "100ml Acqua",
+      "Formine per ghiaccioli"
+    ],
+    "istruzioni": [
+      "Mescola il succo di mela con l'acqua in una caraffa.",
+      "Versa il liquido nelle formine per ghiaccioli.",
+      "Riponi nel congelatore per almeno 4 ore o fino a completa solidificazione.",
+      "Servi al bambino quando avverte fastidio."
+    ],
+    "consistenza": "Liquida"
+  },
+  {
+    "slug": "passato-di-verdure-tiepido",
+    "titolo": "Passato di Verdure Tiepido",
+    "descrizione": "Una vellutata leggera e nutriente, servita rigorosamente tiepida o a temperatura ambiente.",
+    "fasiCompatibili": ["fase_2", "fase_3"],
+    "ingredienti": [
+      "1 Patata dolce",
+      "1 Carota",
+      "1 Zucchina piccola",
+      "Brodo vegetale freddo o tiepido q.b."
+    ],
+    "istruzioni": [
+      "Pulisci e taglia a tocchetti le verdure.",
+      "Fai bollire le verdure finché non sono morbidissime.",
+      "Scola le verdure e frullale aggiungendo poco brodo fino ad ottenere una crema liscia senza grumi.",
+      "LASCIA RAFFREDDARE completamente fino a temperatura ambiente o tiepida prima di servire."
+    ],
+    "consistenza": "Semiliquida"
+  },
+  {
+    "slug": "frullato-di-banana-e-yogurt",
+    "titolo": "Frullato di Banana e Yogurt",
+    "descrizione": "Fresco, nutriente e saziante. Ottimo come spuntino morbido e freddo.",
+    "fasiCompatibili": ["fase_2", "fase_3", "fase_4"],
+    "ingredienti": [
+      "1 Banana molto matura",
+      "125g Yogurt bianco dolce freddo da frigo",
+      "Poco latte per allungare se necessario"
+    ],
+    "istruzioni": [
+      "Sbuccia la banana e tagliala a fette sottili.",
+      "Metti la banana e lo yogurt nel frullatore.",
+      "Frulla alla massima velocità fino a ottenere un composto omogeneo.",
+      "Se risulta troppo denso, aggiungi un goccio di latte freddo.",
+      "Servi in un bicchiere largo (senza cannuccia, che potrebbe creare vuoto e sforzare la gola)."
+    ],
+    "consistenza": "Morbida"
+  }
+]

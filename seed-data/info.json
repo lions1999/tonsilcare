@@ -1,0 +1,30 @@
+[
+  {
+    "slug": "gestione-del-dolore-notturno",
+    "titolo": "Gestione del dolore notturno",
+    "contenuto": "Il dolore tende a peggiorare durante la notte. Assicurati di dare l'antidolorifico prescritto esattamente agli orari indicati, anche se significa svegliare il bambino. Fai bere un sorso d'acqua prima e dopo la somministrazione per mantenere la gola umida.",
+    "categoria": "Dolore",
+    "icona_opzionale": "Activity"
+  },
+  {
+    "slug": "cosa-fare-in-caso-di-sanguinamento",
+    "titolo": "Cosa fare in caso di sanguinamento",
+    "contenuto": "Un leggero striato di sangue nella saliva o nel naso può essere normale nei primi giorni. Se invece noti sangue rosso vivo abbondante (sputo o vomito), recati immediatamente in Pronto Soccorso o chiama il 112. Nel frattempo, fai fare gargarismi con acqua ghiacciata o tieni del ghiaccio sul collo.",
+    "categoria": "Emergenze",
+    "icona_opzionale": "AlertTriangle"
+  },
+  {
+    "slug": "quando-reintrodurre-cibi-solidi",
+    "titolo": "Quando reintrodurre cibi solidi?",
+    "contenuto": "Dipende dalla fase di guarigione, ma in media intorno al 10°-12° giorno, previa visita di controllo. Non avere fretta: biscotti, fette biscottate e cibi taglienti possono graffiare la ferita causando emorragie tardive. Procedi gradualmente con cibi sempre più densi ma morbidi.",
+    "categoria": "Alimentazione",
+    "icona_opzionale": "Utensils"
+  },
+  {
+    "slug": "gestione-della-febbre",
+    "titolo": "Gestione della febbre",
+    "contenuto": "Una febbricola (fino a 38°C) è comune nei primi giorni. Se supera i 38.5°C, non scende con i farmaci o persiste oltre il terzo giorno, contatta il pediatra per escludere eventuali sovrainfezioni batteriche.",
+    "categoria": "Sintomi",
+    "icona_opzionale": "Thermometer"
+  }
+]

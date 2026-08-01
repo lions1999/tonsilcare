@@ -6,9 +6,9 @@
 "use client";
 
 import { useState } from "react";
-import { Info, Phone, ChevronDown, Activity, AlertTriangle, Utensils, Thermometer, Database, Loader2 } from "lucide-react";
+import { Info, Phone, ChevronDown, Activity, AlertTriangle, Utensils, Thermometer } from "lucide-react";
 import { useGuidelines } from "@/hooks/useGuidelines";
-import { seedInitialGuidelines } from "@/lib/firebase/firestore";
+
 import BottomNav from "@/components/BottomNav";
 import type { Guideline } from "@/types";
 
@@ -64,8 +64,7 @@ function AccordionItem({ guide }: { guide: Guideline }) {
 }
 
 export default function InfoPage() {
-  const { guidelines, loading, error, refetch } = useGuidelines();
-  const [isSeeding, setIsSeeding] = useState(false);
+  const { guidelines, loading, error } = useGuidelines();
 
   // Raggruppa le guidelines per categoria
   const guidelinesByCategory = guidelines.reduce((acc, guide) => {
@@ -73,18 +72,6 @@ export default function InfoPage() {
     acc[guide.categoria].push(guide);
     return acc;
   }, {} as Record<string, Guideline[]>);
-
-  const handleSeed = async () => {
-    try {
-      setIsSeeding(true);
-      await seedInitialGuidelines();
-      await refetch();
-    } catch (err) {
-      console.error("Errore nel seeding", err);
-    } finally {
-      setIsSeeding(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 pb-24">
@@ -123,22 +110,18 @@ export default function InfoPage() {
           </div>
         )}
 
-        {/* EMPTY STATE / SEEDING */}
+        {/*
+          EMPTY STATE — senza azione: le linee guida sono contenuto clinico, in
+          sola lettura per il client (firestore.rules). Si popolano con
+          `node scripts/seed.mjs`, non da qui.
+        */}
         {!loading && !error && guidelines.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700 p-8 text-center">
             <Info size={40} className="mb-4 text-slate-600" />
             <h2 className="mb-2 text-lg font-bold text-white">Nessuna informazione</h2>
-            <p className="mb-6 text-sm text-slate-400">
-              Non ci sono linee guida nel database attualmente.
+            <p className="text-sm text-slate-400">
+              Le linee guida non sono ancora state pubblicate.
             </p>
-            <button
-              onClick={handleSeed}
-              disabled={isSeeding}
-              className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-500 disabled:opacity-50"
-            >
-              {isSeeding ? <Loader2 size={18} className="animate-spin" /> : <Database size={18} />}
-              {isSeeding ? "Popolamento in corso..." : "Popola Database (Seed)"}
-            </button>
           </div>
         )}
 

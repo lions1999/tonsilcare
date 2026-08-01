@@ -7,9 +7,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Search, Utensils, Loader2, Database } from "lucide-react";
+import { Search, Utensils } from "lucide-react";
 import { useRecipes } from "@/hooks/useRecipes";
-import { seedInitialRecipes } from "@/lib/firebase/firestore";
 import BottomNav from "@/components/BottomNav";
 import type { RecipeConsistenza } from "@/types";
 
@@ -30,10 +29,9 @@ function RecipeSkeleton() {
 }
 
 export default function RicettePage() {
-  const { recipes, loading, error, refetch } = useRecipes();
+  const { recipes, loading, error } = useRecipes();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedConsistenza, setSelectedConsistenza] = useState<RecipeConsistenza | "Tutte">("Tutte");
-  const [isSeeding, setIsSeeding] = useState(false);
 
   const consistenze: (RecipeConsistenza | "Tutte")[] = ["Tutte", "Liquida", "Semiliquida", "Morbida", "Solida"];
 
@@ -54,18 +52,6 @@ export default function RicettePage() {
     
     return true;
   });
-
-  const handleSeed = async () => {
-    try {
-      setIsSeeding(true);
-      await seedInitialRecipes();
-      await refetch();
-    } catch (err) {
-      console.error("Errore nel seeding", err);
-    } finally {
-      setIsSeeding(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 pb-24">
@@ -125,22 +111,18 @@ export default function RicettePage() {
           </div>
         )}
 
-        {/* EMPTY STATE / SEEDING */}
+        {/*
+          EMPTY STATE — senza azione: il ricettario è contenuto clinico, in sola
+          lettura per il client (firestore.rules). Si popola con
+          `node scripts/seed.mjs`, non da qui.
+        */}
         {!loading && !error && recipes.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700 p-8 text-center">
             <Utensils size={40} className="mb-4 text-slate-600" />
             <h2 className="mb-2 text-lg font-bold text-white">Nessuna ricetta</h2>
-            <p className="mb-6 text-sm text-slate-400">
-              Non ci sono ricette nel database attualmente.
+            <p className="text-sm text-slate-400">
+              Il ricettario non è ancora stato pubblicato.
             </p>
-            <button
-              onClick={handleSeed}
-              disabled={isSeeding}
-              className="flex items-center gap-2 rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-teal-500 disabled:opacity-50"
-            >
-              {isSeeding ? <Loader2 size={18} className="animate-spin" /> : <Database size={18} />}
-              {isSeeding ? "Popolamento in corso..." : "Popola Database (Seed)"}
-            </button>
           </div>
         )}
 

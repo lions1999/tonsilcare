@@ -71,13 +71,27 @@ Le notifiche push (Firebase Cloud Messaging) sono state rimosse deliberatamente:
 
 Sicurezza: `firestore.rules` ha regole `allow update` aggiuntive, ristrette al singolo campo via `request.resource.data.diff(resource.data).affectedKeys().hasOnly([...])`, che permettono al medico di scrivere questi due flag su documenti di cui non è proprietario (il paziente/account del genitore) senza poter toccare nient'altro. Nessuna Cloud Function coinvolta — scelta deliberata per restare coerenti con l'architettura client-diretto già in uso in tutto il progetto (non esiste una cartella `functions/`).
 
-## Seeding Firestore su un progetto nuovo (es. `tonsilcare-dev` da zero)
+## Seeding Firestore: `node scripts/seed.mjs` (2026-07-30)
 
-`/config/alerts`, `/fasi/*` sono pensati per essere creati via Firebase Console (scrittura bloccata al client, `allow write: if false` in `firestore.rules` — sono dati/soglie cliniche, non contenuto). `/ricette` e `/info` hanno invece funzioni di seeding client-callable (`seedInitialRecipes`, `seedInitialGuidelines` in `src/lib/firebase/firestore.ts`) ma vanno comunque invocate manualmente una volta.
+Tutte e quattro le collezioni di contenuto e configurazione — `/ricette`, `/info`, `/fasi`, `/config/alerts` — si popolano con un solo comando:
 
-Se una di queste collezioni manca, il codice reagisce in modo **incoerente** (nessun crash, ma comportamento sbagliato silenzioso):
-- `/fasi` mancante → `usePhaseConfig.ts` ha un fallback hardcoded (`FALLBACK_PHASES`), l'app funziona comunque.
-- `/config/alerts` mancante → **nessun fallback** in `src/app/studio/page.tsx`: `hasAlert` resta sempre `false` per qualsiasi paziente, a prescindere dalla gravità dei parametri. Bug osservato il 2026-07-17 su `tonsilcare-dev` (collezione `config` mai creata), risolto seedando manualmente il documento con gli stessi valori già hardcoded come fallback in `src/components/DashboardContent.tsx` (`DEFAULT_ALERTS`: `temperaturaMaxC: 38.5, doloreSoglia: 7, oreMaxSenzaAlimentazione: 8`).
+```bash
+gcloud auth application-default login    # una volta
+node scripts/seed.mjs --dry-run          # mostra cosa scriverebbe
+node scripts/seed.mjs                    # tonsilcare-dev (default)
+```
+
+Su produzione serve il flag esplicito, altrimenti lo script si rifiuta di partire:
+
+```bash
+node scripts/seed.mjs --project tonsilcare-app --conferma-produzione
+```
+
+I contenuti vivono in `seed-data/*.json`, versionati. Gli id dei documenti sono deterministici (lo `slug`, o la chiave della fase), quindi **rieseguire lo script aggiorna invece di duplicare**. Il vecchio seeding passava da due funzioni client-callable (`seedInitialRecipes`, `seedInitialGuidelines`) invocate da pulsanti nelle pagine `/ricette` e `/info`: usavano `addDoc` senza guardia, quindi ogni click aggiungeva copie. Sono state rimosse insieme ai pulsanti, perché le regole non consentono più la scrittura dal client.
+
+**Perché ora conviene lanciarlo sempre su un ambiente nuovo:** l'assenza di queste collezioni non produce un errore, produce comportamento sbagliato silenzioso.
+- `/fasi` mancante → `usePhaseConfig.ts` ha un fallback hardcoded (`FALLBACK_PHASES`), l'app funziona comunque. Nota: quel fallback duplica `seed-data/fasi.json`, oggi allineati ma destinati a divergere — unificarli è un lavoro a sé.
+- `/config/alerts` mancante → **nessun fallback** in `src/app/studio/page.tsx`: `hasAlert` resta sempre `false` per qualsiasi paziente, a prescindere dalla gravità dei parametri. Bug osservato il 2026-07-17 su `tonsilcare-dev` (collezione `config` mai creata).
 
 Prima di investigare una feature data-driven che sembra "rotta" su un ambiente, verificare che la collezione/documento Firestore da cui dipende esista davvero, invece di assumere un bug di codice.
 
