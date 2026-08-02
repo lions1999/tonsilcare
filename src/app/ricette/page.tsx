@@ -6,6 +6,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Search, Utensils } from "lucide-react";
 import { useRecipes } from "@/hooks/useRecipes";
@@ -146,11 +147,18 @@ export default function RicettePage() {
                   {/* HERO IMAGE */}
                   <div className="relative h-40 w-full overflow-hidden bg-slate-800">
                     {recipe.urlImmagine ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      /*
+                        `fill` invece di width/height: le dimensioni reali del file
+                        non sono note (l'URL arriva da Firestore), e il contenitore
+                        ha già altezza fissa. `sizes` descrive le tre colonne del
+                        grid, altrimenti Next scarica sempre l'immagine full-width.
+                      */
+                      <Image
                         src={recipe.urlImmagine}
                         alt={recipe.titolo}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        fill
+                        sizes="(min-width: 1024px) 320px, (min-width: 640px) 50vw, 100vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">

@@ -6,6 +6,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, Info, CheckCircle2, ListOrdered, List } from "lucide-react";
 import { useRecipe } from "@/hooks/useRecipe";
@@ -58,11 +59,17 @@ export default function DettaglioRicettaPage() {
       {/* HEADER SOVRAPPOSTO ALL'IMMAGINE */}
       <div className="relative h-72 w-full bg-slate-800">
         {recipe.urlImmagine && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          /*
+            `priority`: è l'immagine più grande sopra la piega, quindi l'LCP di
+            questa pagina. Senza, Next la carica in lazy e l'LCP peggiora.
+          */
+          <Image
             src={recipe.urlImmagine}
             alt={recipe.titolo}
-            className="h-full w-full object-cover"
+            fill
+            sizes="(min-width: 1024px) 1024px, 100vw"
+            priority
+            className="object-cover"
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-900/60" />
