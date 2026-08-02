@@ -10,6 +10,29 @@ Verifica dopo qualsiasi modifica alla toolchain di build: `npm run build` deve p
 
 ## Firestore rules: cosa è chiuso di proposito (2026-07-30)
 
+> ### ⚠️ IN ATTESA DI VERIFICA — deploy su produzione non confermato
+>
+> Le regole irrigidite sono state deployate su `tonsilcare-app` (produzione) con
+> `firebase deploy --only firestore:rules --project prod`. Il comando ha riportato successo,
+> **ma il risultato non è stato verificato in modo indipendente**: la CLI Firebase non ha un
+> comando per rileggere le regole pubblicate, `gcloud` non è installato su questa macchina, e
+> non esiste una sessione autenticata su produzione. **Abbiamo solo l'output del comando.**
+>
+> Finché la verifica non è fatta, va considerato **ignoto** se produzione sta girando con le
+> regole nuove o con quelle vecchie — cioè con la privilege escalation su `ruolo` ancora aperta.
+>
+> Da controllare in Firebase Console → `tonsilcare-app` → Firestore → Regole. Tre marcatori
+> che esistono **solo** nella versione nuova:
+>
+> 1. sotto `/accounts`, nell'`allow update`:
+>    `.hasOnly(['nome', 'cognome', 'haRispostaMedicoNonLetta', 'updatedAt'])`
+> 2. sotto `/utenti/{utenteId}/diario/{logId}`: `allow update: if false;`
+> 3. sotto `/ricette` e `/info`: `allow write: if false;` **senza** alcun commento `TODO`
+>    (nella versione vecchia c'era `allow write: if isAuthenticated();` con un TODO accanto)
+>
+> **Questo riquadro va rimosso solo da David, dopo aver verificato.** Non toglierlo perché
+> "il deploy è andato a buon fine": è esattamente quello che non sappiamo.
+
 Le regole sono state irrigidite dopo un audit. Tre punti non erano marcati da alcun TODO e vanno lasciati come sono, salvo decisione esplicita:
 
 - **`/accounts` update ha una allowlist** (`nome`, `cognome`, `haRispostaMedicoNonLetta`, `updatedAt`). Prima era libera, e `ruolo` era scrivibile dal client: **qualunque genitore poteva promuoversi a medico** scrivendo sul proprio documento, e da lì leggere schede e diari di tutti i bambini e creare prescrizioni, perché `isMedico()` legge esattamente quel campo. La promozione a medico si fa da Console o Admin SDK, che non passano dalle regole. Se serve permettere la modifica di un nuovo campo di profilo, si aggiunge all'elenco — non si riapre l'update.
