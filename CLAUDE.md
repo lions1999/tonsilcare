@@ -12,30 +12,36 @@ Verifica dopo qualsiasi modifica alla toolchain di build: `npm run build` deve p
 
 ### Verificare che le regole pubblicate siano davvero quelle del repo
 
-Il deploy su `tonsilcare-app` è stato verificato il 2026-08-03: le regole pubblicate sono
-**byte-identiche** a `firestore.rules` (sha256 `319b7a2d2c325652`, 167 righe, 0 differenze),
-ruleset `a43af3de-…` con `updateTime` 2026-08-01T09:26:22Z.
+**L'output di `firebase deploy` non è una verifica:** dice che il comando è arrivato in fondo,
+non cosa sta girando. Un deploy verso il progetto sbagliato, o con un file non salvato, dà lo
+stesso output verde. La CLI non sa rileggere le regole pubblicate; la Rules REST API sì.
 
-L'output di `firebase deploy` non è una verifica: dice che il comando è arrivato in fondo,
-non cosa sta girando. La CLI non ha un comando per rileggere le regole pubblicate, ma la
-**Rules REST API** sì, e con le ADC di `gcloud` bastano due chiamate:
+Dopo ogni deploy:
 
 ```bash
-TOKEN=$(gcloud auth application-default print-access-token)
-# 1. quale ruleset è attivo per Firestore
-curl -H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: tonsilcare-app" \
-  https://firebaserules.googleapis.com/v1/projects/tonsilcare-app/releases
-# 2. il sorgente di quel ruleset (campo source.files[0].content)
-curl -H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: tonsilcare-app" \
-  https://firebaserules.googleapis.com/v1/projects/tonsilcare-app/rulesets/<RULESET_ID>
+node scripts/verifica-rules.mjs                            # tonsilcare-dev
+node scripts/verifica-rules.mjs --project tonsilcare-app   # produzione
 ```
 
-Poi si confronta l'hash del contenuto con quello del file nel repo. **Confronta i byte in
-UTF-8**: un round-trip in PowerShell legge l'UTF-8 come ANSI e storpia gli accenti nei
-commenti, facendo sembrare diverse due regole identiche (successo già ottenuto una volta).
+Esce 0 se tutto coincide, 1 altrimenti, quindi si può incatenare al deploy. Controlla due cose
+distinte:
 
-Da rifare dopo ogni deploy su produzione. Costa trenta secondi e sostituisce la fiducia con
-una prova.
+1. **il testo pubblicato coincide con `firestore.rules`** — hash più diff riga per riga;
+2. **alcuni marcatori esistono davvero nel testo pubblicato.** Il confronto da solo dice se i
+   due file sono uguali, non se sono giusti: se qualcuno cancella una regola e committa, gli
+   hash restano identici e la protezione è sparita lo stesso. I marcatori sono le sette regole
+   che ci sono costate un bug o un audit; l'elenco sta in cima allo script, e va allungato
+   quando si aggiunge una protezione che conta.
+
+Lo script è nato come procedura a mano fatta di due `curl` documentati qui. Era una ricetta,
+non uno strumento: nessuno confrontava davvero gli hash, ed è già sparita una volta insieme
+alla cartella temporanea in cui viveva.
+
+Dettagli che costano tempo se non si sanno, entrambi già gestiti dallo script: il confronto va
+fatto sui **byte UTF-8** (un round-trip in PowerShell legge l'UTF-8 come ANSI e storpia gli
+accenti nei commenti, facendo sembrare diverse due regole identiche — già successo), e
+`gcloud` non finisce sul PATH quando è installato con winget, vive sotto `%LOCALAPPDATA%` in un
+percorso con spazi (si può forzare con la variabile `GCLOUD_CMD`).
 
 ### Stato al 2026-08-03: dev e produzione allineate
 
@@ -47,14 +53,8 @@ Entrambi i progetti hanno le regole dell'override della fase (il medico può scr
 | `tonsilcare-dev` | `aa031db7-…` | 192 | 0 |
 | `tonsilcare-app` | `60fadbc4-…` | 192 | 0 |
 
-sha256 `3653933a48f67681` su entrambi, uguale al file nel repo.
-
-Lo script di verifica controlla anche che cinque **marcatori** esistano nel testo pubblicato,
-non in quello locale: l'allowlist su `/accounts`, `allow update: if false` sul diario, la
-`hasOnly` dei quattro campi `faseOverride*`, la `hasAny` che li nega al genitore, e
-`faseOverrideDa == request.auth.uid`. Un confronto di hash dice se i file coincidono; i
-marcatori dicono se le regole che contano ci sono davvero, e sopravvivono a un refuso che
-cambi il file da entrambe le parti.
+sha256 `3653933a48f67681` su entrambi, uguale al file nel repo, e tutti e sette i marcatori
+presenti. Rieseguire lo script è il modo per sapere se questa tabella è ancora vera.
 
 Le regole sono state irrigidite dopo un audit. Tre punti non erano marcati da alcun TODO e vanno lasciati come sono, salvo decisione esplicita:
 
