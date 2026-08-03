@@ -10,28 +10,32 @@ Verifica dopo qualsiasi modifica alla toolchain di build: `npm run build` deve p
 
 ## Firestore rules: cosa è chiuso di proposito (2026-07-30)
 
-> ### ⚠️ IN ATTESA DI VERIFICA — deploy su produzione non confermato
->
-> Le regole irrigidite sono state deployate su `tonsilcare-app` (produzione) con
-> `firebase deploy --only firestore:rules --project prod`. Il comando ha riportato successo,
-> **ma il risultato non è stato verificato in modo indipendente**: la CLI Firebase non ha un
-> comando per rileggere le regole pubblicate, `gcloud` non è installato su questa macchina, e
-> non esiste una sessione autenticata su produzione. **Abbiamo solo l'output del comando.**
->
-> Finché la verifica non è fatta, va considerato **ignoto** se produzione sta girando con le
-> regole nuove o con quelle vecchie — cioè con la privilege escalation su `ruolo` ancora aperta.
->
-> Da controllare in Firebase Console → `tonsilcare-app` → Firestore → Regole. Tre marcatori
-> che esistono **solo** nella versione nuova:
->
-> 1. sotto `/accounts`, nell'`allow update`:
->    `.hasOnly(['nome', 'cognome', 'haRispostaMedicoNonLetta', 'updatedAt'])`
-> 2. sotto `/utenti/{utenteId}/diario/{logId}`: `allow update: if false;`
-> 3. sotto `/ricette` e `/info`: `allow write: if false;` **senza** alcun commento `TODO`
->    (nella versione vecchia c'era `allow write: if isAuthenticated();` con un TODO accanto)
->
-> **Questo riquadro va rimosso solo da David, dopo aver verificato.** Non toglierlo perché
-> "il deploy è andato a buon fine": è esattamente quello che non sappiamo.
+### Verificare che le regole pubblicate siano davvero quelle del repo
+
+Il deploy su `tonsilcare-app` è stato verificato il 2026-08-03: le regole pubblicate sono
+**byte-identiche** a `firestore.rules` (sha256 `319b7a2d2c325652`, 167 righe, 0 differenze),
+ruleset `a43af3de-…` con `updateTime` 2026-08-01T09:26:22Z.
+
+L'output di `firebase deploy` non è una verifica: dice che il comando è arrivato in fondo,
+non cosa sta girando. La CLI non ha un comando per rileggere le regole pubblicate, ma la
+**Rules REST API** sì, e con le ADC di `gcloud` bastano due chiamate:
+
+```bash
+TOKEN=$(gcloud auth application-default print-access-token)
+# 1. quale ruleset è attivo per Firestore
+curl -H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: tonsilcare-app" \
+  https://firebaserules.googleapis.com/v1/projects/tonsilcare-app/releases
+# 2. il sorgente di quel ruleset (campo source.files[0].content)
+curl -H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: tonsilcare-app" \
+  https://firebaserules.googleapis.com/v1/projects/tonsilcare-app/rulesets/<RULESET_ID>
+```
+
+Poi si confronta l'hash del contenuto con quello del file nel repo. **Confronta i byte in
+UTF-8**: un round-trip in PowerShell legge l'UTF-8 come ANSI e storpia gli accenti nei
+commenti, facendo sembrare diverse due regole identiche (successo già ottenuto una volta).
+
+Da rifare dopo ogni deploy su produzione. Costa trenta secondi e sostituisce la fiducia con
+una prova.
 
 Le regole sono state irrigidite dopo un audit. Tre punti non erano marcati da alcun TODO e vanno lasciati come sono, salvo decisione esplicita:
 
@@ -117,6 +121,52 @@ I contenuti vivono in `seed-data/*.json`, versionati. Gli id dei documenti sono 
 - `/config/alerts` mancante → **nessun fallback** in `src/app/studio/page.tsx`: `hasAlert` resta sempre `false` per qualsiasi paziente, a prescindere dalla gravità dei parametri. Bug osservato il 2026-07-17 su `tonsilcare-dev` (collezione `config` mai creata).
 
 Prima di investigare una feature data-driven che sembra "rotta" su un ambiente, verificare che la collezione/documento Firestore da cui dipende esista davvero, invece di assumere un bug di codice.
+
+## L'id del documento vince sempre sul campo salvato (2026-08-03)
+
+Tutte le letture in `src/lib/firebase/firestore.ts` costruiscono l'oggetto come
+`{ ...snap.data(), id: snap.id }` — **spread prima, id dopo**. Non è uno stile: con l'ordine
+opposto un campo `id` salvato dentro al documento vince sull'id vero, senza errori. Erano 11
+occorrenze, tutte con l'ordine sbagliato.
+
+Due casi vanno letti con attenzione prima di "uniformare":
+
+- **`getUtenteLogs` / `getLatestLog`**: `{ ...data, id, createdAt }`. `createdAt` sta dopo lo
+  spread perché lì l'override è **voluto** (Timestamp → stringa ISO). Spostarlo prima rompe
+  la conversione in silenzio, e il tipo continua a dichiarare `string`.
+- **`getAccountProfile`**: `{ ...snap.data(), uid }` dove `uid` è l'argomento della funzione,
+  cioè l'utente **autenticato**. Non è l'id di un documento: è l'identità del chiamante, e
+  `/accounts` è la collezione da cui le regole leggono `ruolo`.
+
+**Debito noto:** `signUp` (`src/lib/firebase/auth.ts`) scrive ancora `uid: user.uid` dentro
+`accounts/{user.uid}`. Dopo la correzione quel campo è duplicato e ininfluente in lettura, ma
+continua a essere scritto su ogni nuovo account. Toglierlo tocca la scrittura e i documenti
+già esistenti (e `AccountProfile` dichiara `uid` obbligatorio), quindi va fatto insieme, non
+di passaggio. Stessa cosa era `seed-data/fasi.json`, che aveva `id` come campo: lì è già stato
+rimosso.
+
+## Le fasi post-operatorie sono definite in TRE posti (2026-08-03)
+
+Chi cambia l'elenco delle fasi deve toccarli **tutti e tre**. Nessuno dei tre importa dagli
+altri, e nessun controllo automatico verifica che siano allineati:
+
+1. **`seed-data/fasi.json`** → i documenti `/fasi/{faseId}` su Firestore. È la fonte che l'app
+   legge davvero, da quando `/fasi` è popolata.
+2. **`FALLBACK_PHASES` in `src/hooks/usePhaseConfig.ts`** → usato quando il documento non
+   esiste. Contenuto duplicato di (1).
+3. **`FASE_OPTIONS` in `src/components/studio/SearchAndFilterBar.tsx`** → le voci del filtro
+   "per fase" della Control Room. Nota: quel filtro **non legge `/fasi`**, confronta
+   `u.faseAttualeId === selectedFase` contro un elenco hardcoded di id.
+
+Perché è urgente e non un debito qualsiasi: **il cliente deve ancora confermare se le fasi
+sono 4 o 5.** Quando risponderà, aggiornarne due su tre produce un fallimento silenzioso —
+la solita famiglia di bug di questo progetto. Se si aggiungesse una fase senza toccare (3),
+il filtro non la mostrerebbe e quei pazienti sparirebbero dalla Control Room filtrata; se si
+rimuovesse una fase senza toccare (3), il filtro offrirebbe una fase che non esiste più e
+restituirebbe sempre zero pazienti. In nessuno dei due casi compare un errore.
+
+Unificarli è un lavoro a sé, non ancora fatto. Nel frattempo: **cambiare le fasi in tre
+posti, e verificare la Control Room dopo, non solo la dashboard.**
 
 ## Cookie `__role`: scrittura sincrona al login/registrazione (2026-07-17)
 
