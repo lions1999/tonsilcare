@@ -1,6 +1,5 @@
 {
   "fase_1": {
-    "id": "fase_1",
     "titolo": "Fase 1 — Liquidi freddi",
     "descrizione": "Giornate subito dopo l'operazione. Solo liquidi freddi o a temperatura ambiente.",
     "giorniRange": [0, 1],
@@ -14,7 +13,6 @@
     ]
   },
   "fase_2": {
-    "id": "fase_2",
     "titolo": "Fase 2 — Alimenti semiliquidi",
     "descrizione": "Transizione verso alimenti più consistenti. Continuare a privilegiare cibi freddi e morbidi.",
     "giorniRange": [2, 4],
@@ -28,7 +26,6 @@
     ]
   },
   "fase_3": {
-    "id": "fase_3",
     "titolo": "Fase 3 — Alimenti morbidi",
     "descrizione": "Il bambino può iniziare ad assumere alimenti morbidi che non richiedono masticazione intensa.",
     "giorniRange": [5, 7],
@@ -42,7 +39,6 @@
     ]
   },
   "fase_4": {
-    "id": "fase_4",
     "titolo": "Fase 4 — Transizione",
     "descrizione": "Il recupero procede bene. Graduale ritorno ad alimenti normali, ancora con attenzione.",
     "giorniRange": [8, 10],
@@ -56,7 +52,6 @@
     ]
   },
   "fase_5": {
-    "id": "fase_5",
     "titolo": "Fase 5 — Ritorno alla normalità",
     "descrizione": "Recupero quasi completo. Riprendere progressivamente l'alimentazione normale.",
     "giorniRange": [11, 14],

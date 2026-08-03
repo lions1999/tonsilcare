@@ -96,7 +96,7 @@ export async function getUtenti(accountId: string): Promise<UtenteProfile[]> {
     where("accountId", "==", accountId)
   );
   const snap: QuerySnapshot<DocumentData> = await getDocs(q);
-  const utenti = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as UtenteProfile[];
+  const utenti = snap.docs.map((d) => ({ ...d.data(), id: d.id })) as UtenteProfile[];
   return utenti.sort((a, b) => {
     return new Date(b.dataOperazione).getTime() - new Date(a.dataOperazione).getTime();
   });
@@ -108,7 +108,7 @@ export async function getUtenti(accountId: string): Promise<UtenteProfile[]> {
 export async function getAllUtenti(): Promise<UtenteProfile[]> {
   const q = query(collection(db, "utenti"));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as UtenteProfile[];
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id })) as UtenteProfile[];
 }
 
 /**
@@ -117,7 +117,7 @@ export async function getAllUtenti(): Promise<UtenteProfile[]> {
 export async function getUtente(utenteId: string): Promise<UtenteProfile | null> {
   const snap = await getDoc(doc(db, "utenti", utenteId));
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() } as UtenteProfile;
+  return { ...snap.data(), id: snap.id } as UtenteProfile;
 }
 
 /**
@@ -180,7 +180,7 @@ export async function getPhaseConfig(
 ): Promise<PostOpPhaseConfig | null> {
   const snap = await getDoc(doc(db, "fasi", faseId));
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() } as PostOpPhaseConfig;
+  return { ...snap.data(), id: snap.id } as PostOpPhaseConfig;
 }
 
 // ---------------------------------------------------------------------------
@@ -254,7 +254,13 @@ export async function getUtenteLogs(utenteId: string): Promise<DailyLog[]> {
     if (data.createdAt && data.createdAt.toDate) {
       createdAtStr = data.createdAt.toDate().toISOString();
     }
-    return { id: d.id, ...data, createdAt: createdAtStr } as DailyLog;
+    // `createdAt` DEVE restare dopo lo spread: qui l'override è voluto, perché
+    // sostituisce il Timestamp di Firestore con la stringa ISO. `id` invece va
+    // dopo lo spread per la ragione opposta — che nessun campo salvato possa
+    // vincere sull'id vero del documento. Non "uniformare" spostando createdAt
+    // prima: la conversione salterebbe senza errori, e il tipo DailyLog dice
+    // comunque `string`.
+    return { ...data, id: d.id, createdAt: createdAtStr } as DailyLog;
   });
 }
 
@@ -280,7 +286,10 @@ export async function getLatestLog(utenteId: string): Promise<DailyLog | null> {
     createdAtStr = data.createdAt.toDate().toISOString();
   }
   
-  return { id: d.id, ...data, createdAt: createdAtStr } as DailyLog;
+  // Stesso ordine di getUtenteLogs, per la stessa ragione: `id` dopo lo spread
+  // perché l'id del documento non sia sovrascrivibile da un campo salvato,
+  // `createdAt` dopo perché lì l'override (Timestamp → stringa ISO) è voluto.
+  return { ...data, id: d.id, createdAt: createdAtStr } as DailyLog;
 }
 
 // ---------------------------------------------------------------------------
@@ -316,7 +325,7 @@ export async function getPrescrizioni(utenteId: string): Promise<Prescrizione[]>
     orderBy("timestamp", "desc")
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Prescrizione[];
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id })) as Prescrizione[];
 }
 
 // ---------------------------------------------------------------------------
@@ -331,7 +340,7 @@ import type { Recipe } from "@/types";
 export async function getRecipes(): Promise<Recipe[]> {
   const q = query(collection(db, "ricette"));
   const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Recipe[];
+  return snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Recipe[];
 }
 
 /**
@@ -340,7 +349,7 @@ export async function getRecipes(): Promise<Recipe[]> {
 export async function getRecipeById(id: string): Promise<Recipe | null> {
   const snap = await getDoc(doc(db, "ricette", id));
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() } as Recipe;
+  return { ...snap.data(), id: snap.id } as Recipe;
 }
 
 
@@ -356,5 +365,5 @@ import type { Guideline } from "@/types";
 export async function getGuidelines(): Promise<Guideline[]> {
   const q = query(collection(db, "info"));
   const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Guideline[];
+  return snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Guideline[];
 }
