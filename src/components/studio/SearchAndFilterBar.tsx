@@ -5,7 +5,8 @@
 
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Search, AlertTriangle, Sparkles, SlidersHorizontal, ChevronDown } from "lucide-react";
 import type { PostOpPhase, PostOpPhaseConfig } from "@/types";
 
@@ -38,10 +39,81 @@ export default function SearchAndFilterBar({
   fasi,
 }: SearchAndFilterBarProps) {
   const [faseDropdownOpen, setFaseDropdownOpen] = useState(false);
+  const bottoneFaseRef = useRef<HTMLButtonElement>(null);
+  const menuFaseRef = useRef<HTMLDivElement>(null);
 
   const faseLabel = selectedFase
     ? fasi.find((f) => f.id === selectedFase)?.titolo ?? "Fase"
     : "Fase";
+
+  /*
+    Il menu vive in un portale su <body> ed è posizionato a mano sotto il
+    bottone. Sembra troppo per un elenco di cinque voci; ecco perché serve.
+
+    Un menu `absolute` veniva ritagliato: la riga dei filtri ha `overflow-x-auto`
+    e il CSS forza l'altro asse da `visible` ad `auto`, quindi quel contenitore
+    ritaglia anche in verticale. Misurato: clientHeight 34px contro un menu da
+    222px, tagliato a un settimo — il bug segnalato.
+
+    Togliere l'overflow non era la strada: con una fase selezionata il bottone
+    porta il titolo completo e la riga misura 463px contro 396 disponibili,
+    quindi lo scorrimento orizzontale serve davvero. E più in alto ci sono altri
+    due contenitori con `overflow-hidden`.
+
+    Nemmeno `position: fixed` da solo basta: l'header ha `backdrop-blur-xl`, e
+    `backdrop-filter` crea un blocco contenitore per i discendenti `fixed`. Il
+    menu si ancorava all'header invece che al viewport e finiva a 264px di
+    distanza dal bottone. Vale anche per l'overlay `fixed inset-0` che chiude il
+    menu: confinato all'header, non copriva il resto della pagina. Il portale
+    toglie entrambi da sotto quell'ancoraggio.
+
+    Lo stile viene scritto direttamente sull'elemento invece che via stato: è
+    una misura di layout, e passare dallo stato aggiungerebbe un render a ogni
+    riposizionamento durante lo scroll.
+  */
+  useLayoutEffect(() => {
+    if (!faseDropdownOpen) return;
+
+    const posiziona = () => {
+      const bottone = bottoneFaseRef.current;
+      const menu = menuFaseRef.current;
+      if (!bottone || !menu) return;
+
+      const r = bottone.getBoundingClientRect();
+      const MARGINE = 8;
+      const DISTANZA = 4;
+
+      // Solo verso il basso: l'header è `sticky top-0`, quindi il bottone sta
+      // sempre in cima allo schermo e un ramo "apri verso l'alto" non
+      // scatterebbe mai. Quando lo spazio è poco il menu si accorcia e scorre
+      // al suo interno — verificato a 1440x320, dove si ferma a 167px e resta
+      // dentro il viewport.
+      menu.style.top = `${r.bottom + DISTANZA}px`;
+      menu.style.maxHeight = `${Math.max(
+        96,
+        window.innerHeight - r.bottom - DISTANZA - MARGINE
+      )}px`;
+
+      // La larghezza si può leggere solo dopo che maxHeight è applicata: se
+      // compare la barra di scorrimento interna, l'elemento si allarga.
+      const larghezza = menu.offsetWidth;
+      menu.style.left = `${Math.min(
+        Math.max(MARGINE, r.left),
+        window.innerWidth - larghezza - MARGINE
+      )}px`;
+    };
+
+    posiziona();
+    // `capture: true` perché lo scroll che conta avviene dentro i contenitori
+    // della Control Room, non sulla finestra: senza, il menu resterebbe fermo
+    // mentre il bottone scorre via.
+    window.addEventListener("scroll", posiziona, true);
+    window.addEventListener("resize", posiziona);
+    return () => {
+      window.removeEventListener("scroll", posiziona, true);
+      window.removeEventListener("resize", posiziona);
+    };
+  }, [faseDropdownOpen, fasi.length]);
 
   return (
     <div className="mt-3 space-y-2.5">
@@ -96,6 +168,7 @@ export default function SearchAndFilterBar({
         {/* Filtro fase (dropdown) */}
         <div className="relative flex-shrink-0">
           <button
+            ref={bottoneFaseRef}
             onClick={() => {
               const next = !faseDropdownOpen;
               setFaseDropdownOpen(next);
@@ -112,7 +185,7 @@ export default function SearchAndFilterBar({
             <ChevronDown size={12} className={`transition-transform ${faseDropdownOpen ? "rotate-180" : ""}`} />
           </button>
 
-          {faseDropdownOpen && (
+          {faseDropdownOpen && createPortal(
             <>
               <div
                 aria-hidden="true"
@@ -120,9 +193,10 @@ export default function SearchAndFilterBar({
                 onClick={() => setFaseDropdownOpen(false)}
               />
               <div
+                ref={menuFaseRef}
                 role="listbox"
                 aria-label="Filtra per fase post-operatoria"
-                className="absolute left-0 top-full z-50 mt-1 min-w-[220px] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/40"
+                className="fixed z-50 min-w-[220px] overflow-y-auto overscroll-contain rounded-xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/40"
               >
                 {fasi.map((fase) => (
                   <button
@@ -144,7 +218,8 @@ export default function SearchAndFilterBar({
                   </button>
                 ))}
               </div>
-            </>
+            </>,
+            document.body
           )}
         </div>
       </div>
