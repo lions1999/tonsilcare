@@ -53,11 +53,37 @@ export interface UtenteProfile {
   id: string;
   nome: string;
   cognome: string;
-  dataNascita: string;        // ISO 8601
-  dataOperazione: string;     // ISO 8601
-  faseAttualeId: PostOpPhase;
+  dataNascita: string;        // ISO 8601, solo giorno
+  dataOperazione: string;     // ISO 8601, solo giorno. Può essere nel futuro: la
+                              // scheda si apre anche per un intervento previsto.
   noteClinicare?: string;
   accountId: string;          // UID Firebase Auth dell'Account che lo gestisce
+
+  /**
+   * @deprecated Non più letto da nessuna parte: la fase si calcola da
+   * `dataOperazione` e dai `giorniRange` di /fasi (vedi lib/utils/fase.ts).
+   *
+   * Era scritto alla creazione della scheda e non veniva mai aggiornato, quindi
+   * dopo pochi giorni indicava una fase sbagliata — e da quella fase dipende il
+   * piano alimentare mostrato al genitore.
+   *
+   * Resta sui documenti creati prima del 2026-08-03 e NON viene ripulito: una
+   * bonifica su dev ma non su produzione produrrebbe due popolazioni di forma
+   * diversa, peggio di un residuo unico e documentato. I nuovi documenti non lo
+   * hanno. Non riutilizzarlo per l'override del medico: è valorizzato su tutti i
+   * pazienti esistenti, quindi risulterebbero tutti forzati.
+   */
+  faseAttualeId?: PostOpPhase;
+
+  /**
+   * Fase imposta dal medico, che vince sul calcolo automatico. La sua PRESENZA
+   * è il segnale di "forzata": nessun booleano separato che possa divergere.
+   * Assente = fase automatica. Scrivibile solo dal medico (vedi firestore.rules).
+   */
+  faseOverride?: PostOpPhase;
+  faseOverrideMotivo?: string;
+  faseOverrideDa?: string;    // UID del medico che l'ha impostata
+  faseOverrideIl?: string;    // ISO 8601 con orario
 
   // Campi opzionali: assenti sui pazienti creati prima della loro introduzione,
   // richiesti invece dal form per ogni nuovo paziente (vedi validations/utente.ts)

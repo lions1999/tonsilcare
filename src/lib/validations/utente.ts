@@ -40,8 +40,11 @@ export const utenteProfileSchema = z.object({
   nome: z.string().min(1, "Il nome è obbligatorio"),
   cognome: z.string().min(1, "Il cognome è obbligatorio"),
   dataNascita: z.string().min(1, "La data di nascita è obbligatoria"),
+  // Nessun limite superiore: la specifica prevede l'intervento "previsto o
+  // eseguito", quindi una data futura è legittima e produce lo stato
+  // pre-operatorio. La fase non è più un campo del form: si deriva da questa
+  // data e dagli intervalli di /fasi (vedi lib/utils/fase.ts).
   dataOperazione: z.string().min(1, "La data dell'operazione è obbligatoria"),
-  faseAttualeId: z.enum(["fase_1", "fase_2", "fase_3", "fase_4", "fase_5"]),
 
   tipoIntervento: z.enum(
     ["adenoidectomia", "tonsillectomia", "adenotonsillectomia"],

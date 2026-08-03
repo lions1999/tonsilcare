@@ -1,32 +1,35 @@
 /**
- * @file src/hooks/usePhaseConfig.ts
- * @description Hook per caricare la configurazione di una fase post-operatoria
- * da Firestore (/fasi/{faseId}).
+ * @file src/hooks/useFasi.ts
+ * @description Carica l'elenco completo delle fasi post-operatorie da /fasi.
  *
- * Se il documento non esiste ancora su Firestore, restituisce una configurazione
- * di fallback minimale basata sul faseId, evitando crash dell'app.
+ * Sostituisce `usePhaseConfig(faseId)`, che leggeva un solo documento perché la
+ * fase era un id salvato sul paziente. Ora la fase si deriva dal calendario
+ * (lib/utils/fase.ts) e per confrontare il giorno post-operatorio con i
+ * `giorniRange` servono tutti gli intervalli, non uno.
  *
- * SEEDING FIRESTORE:
- * Per popolare le fasi, crea documenti in /fasi con ID = PostOpPhase
- * (es. "fase_1", "fase_2", ecc.) con i campi:
- * {
- *   titolo, descrizione, giorniRange, consistenzaSuggerita,
- *   cibiConsigliati, cibiVietati, consigli
- * }
+ * SEEDING: `node scripts/seed.mjs` popola /fasi da seed-data/fasi.json.
  */
 
 "use client";
 
-import { useState, useEffect } from "react";
-import { getPhaseConfig } from "@/lib/firebase/firestore";
-import type { PostOpPhase, PostOpPhaseConfig } from "@/types";
+import { useEffect, useState } from "react";
+import { getAllPhaseConfigs } from "@/lib/firebase/firestore";
+import type { PostOpPhaseConfig } from "@/types";
 
 // ---------------------------------------------------------------------------
-// Configurazioni di fallback (usate se Firestore non ha ancora i dati)
+// Fallback locale
 // ---------------------------------------------------------------------------
 
-const FALLBACK_PHASES: Record<PostOpPhase, PostOpPhaseConfig> = {
-  fase_1: {
+/**
+ * Usato solo se /fasi è vuota o irraggiungibile: l'app continua a funzionare
+ * invece di lasciare il genitore senza indicazioni.
+ *
+ * ATTENZIONE: duplica seed-data/fasi.json e nessun controllo verifica che siano
+ * allineati. Vedi la sezione "Le fasi post-operatorie sono definite in TRE
+ * posti" in CLAUDE.md prima di modificarlo.
+ */
+const FASI_FALLBACK: PostOpPhaseConfig[] = [
+  {
     id: "fase_1",
     titolo: "Fase 1 — Liquidi freddi",
     descrizione:
@@ -41,7 +44,7 @@ const FALLBACK_PHASES: Record<PostOpPhase, PostOpPhaseConfig> = {
       "Tenere la testa sollevata durante il riposo",
     ],
   },
-  fase_2: {
+  {
     id: "fase_2",
     titolo: "Fase 2 — Alimenti semiliquidi",
     descrizione:
@@ -56,7 +59,7 @@ const FALLBACK_PHASES: Record<PostOpPhase, PostOpPhaseConfig> = {
       "Monitorare la temperatura corporea ogni 6 ore",
     ],
   },
-  fase_3: {
+  {
     id: "fase_3",
     titolo: "Fase 3 — Alimenti morbidi",
     descrizione:
@@ -71,7 +74,7 @@ const FALLBACK_PHASES: Record<PostOpPhase, PostOpPhaseConfig> = {
       "Continuare il monitoraggio della temperatura",
     ],
   },
-  fase_4: {
+  {
     id: "fase_4",
     titolo: "Fase 4 — Transizione",
     descrizione:
@@ -86,7 +89,7 @@ const FALLBACK_PHASES: Record<PostOpPhase, PostOpPhaseConfig> = {
       "Contattare il medico se compare sanguinamento",
     ],
   },
-  fase_5: {
+  {
     id: "fase_5",
     titolo: "Fase 5 — Ritorno alla normalità",
     descrizione:
@@ -101,39 +104,20 @@ const FALLBACK_PHASES: Record<PostOpPhase, PostOpPhaseConfig> = {
       "Segnalare qualsiasi disagio residuo",
     ],
   },
-};
-
-// ---------------------------------------------------------------------------
-// Tipi
-// ---------------------------------------------------------------------------
-
-export interface UsePhaseConfigResult {
-  phaseConfig: PostOpPhaseConfig | null;
-  loading: boolean;
-  error: string | null;
-  /** True se i dati vengono da Firestore, false se dal fallback locale */
-  isFromFirestore: boolean;
-}
+];
 
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
-export function usePhaseConfig(faseId: PostOpPhase | null): UsePhaseConfigResult {
-  const [phaseConfig, setPhaseConfig] = useState<PostOpPhaseConfig | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isFromFirestore, setIsFromFirestore] = useState<boolean>(false);
+export interface UseFasiResult {
+  fasi: PostOpPhaseConfig[];
+  loading: boolean;
+}
 
-  // Al cambio di fase lo spinner va rialzato subito. React prevede di farlo
-  // durante il render, non dentro un effect: qui la setState non incatena un
-  // render extra perché avviene prima che questo venga commesso.
-  const [faseCaricata, setFaseCaricata] = useState(faseId);
-  if (faseCaricata !== faseId) {
-    setFaseCaricata(faseId);
-    setLoading(true);
-    setError(null);
-  }
+export function useFasi(): UseFasiResult {
+  const [fasi, setFasi] = useState<PostOpPhaseConfig[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Ogni setState avviene nella continuazione asincrona: aggiornare lo stato in
   // modo sincrono qui incatenerebbe un secondo render allo stesso commit
@@ -141,45 +125,34 @@ export function usePhaseConfig(faseId: PostOpPhase | null): UsePhaseConfigResult
   useEffect(() => {
     let annullato = false;
 
-    const richiedi = async (): Promise<{
-      config: PostOpPhaseConfig | null;
-      daFirestore: boolean;
-      errore: string | null;
-    }> => {
-      if (!faseId) return { config: null, daFirestore: false, errore: null };
-
-      try {
-        const config = await getPhaseConfig(faseId);
-        if (config) return { config, daFirestore: true, errore: null };
-        // Firestore non ha ancora questo documento → usa il fallback locale
-        return {
-          config: FALLBACK_PHASES[faseId],
-          daFirestore: false,
-          errore: null,
-        };
-      } catch (err) {
-        console.error("[usePhaseConfig] Errore:", err);
-        // Anche in caso di errore, mostra il fallback per non bloccare l'UI
-        return {
-          config: FALLBACK_PHASES[faseId],
-          daFirestore: false,
-          errore: "Impossibile caricare la configurazione della fase.",
-        };
-      }
-    };
-
-    richiedi().then(({ config, daFirestore, errore }) => {
-      if (annullato) return;
-      setPhaseConfig(config);
-      setIsFromFirestore(daFirestore);
-      setError(errore);
-      setLoading(false);
-    });
+    getAllPhaseConfigs()
+      .then((daFirestore) => {
+        if (annullato) return;
+        if (daFirestore.length === 0) {
+          // Il fallback tiene in piedi l'app, ma va detto: una /fasi vuota è
+          // indistinguibile dal funzionamento normale, ed è già costata giorni
+          // di indagine su questo progetto.
+          console.warn(
+            "[useFasi] /fasi è vuota: uso le fasi di fallback locali. " +
+              "Popolala con `node scripts/seed.mjs`."
+          );
+          setFasi(FASI_FALLBACK);
+        } else {
+          setFasi(daFirestore);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (annullato) return;
+        console.error("[useFasi] Errore nella lettura di /fasi:", err);
+        setFasi(FASI_FALLBACK);
+        setLoading(false);
+      });
 
     return () => {
       annullato = true;
     };
-  }, [faseId]);
+  }, []);
 
-  return { phaseConfig, loading, error, isFromFirestore };
+  return { fasi, loading };
 }

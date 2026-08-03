@@ -28,7 +28,6 @@ import {
 import { db } from "./config";
 import type {
   UtenteProfile,
-  PostOpPhase,
   PostOpPhaseConfig,
   MedicalAlerts,
   AccountProfile,
@@ -78,12 +77,15 @@ export async function clearRispostaMedicoNonLetta(accountId: string): Promise<vo
 // Utenti Operati
 // ---------------------------------------------------------------------------
 
+/**
+ * Nessun campo `faseAttualeId`: la fase non si salva, si deriva da
+ * `dataOperazione` e dagli intervalli di /fasi (vedi lib/utils/fase.ts).
+ */
 export interface CreateUtenteData {
   nome: string;
   cognome: string;
   dataNascita: string;
   dataOperazione: string;
-  faseAttualeId: PostOpPhase;
   noteClinica?: string;
   tipoIntervento?: TipoIntervento;
   pesoIniziale?: number;
@@ -142,18 +144,12 @@ export async function addUtente(
   return docRef.id;
 }
 
-/**
- * Aggiorna la fase post-operatoria di un utente.
+/*
+ * I writer dell'override della fase (setFaseOverride / clearFaseOverride)
+ * arrivano nel commit successivo, insieme alle regole Firestore che li
+ * autorizzano: senza quelle, la scrittura verrebbe rifiutata e sembrerebbe un
+ * bug del codice.
  */
-export async function updateUtentePhase(
-  utenteId: string,
-  faseAttualeId: PostOpPhase
-): Promise<void> {
-  await updateDoc(doc(db, "utenti", utenteId), {
-    faseAttualeId,
-    updatedAt: serverTimestamp(),
-  });
-}
 
 /**
  * Elimina un utente operato.
@@ -177,15 +173,17 @@ export async function getMedicalAlerts(): Promise<MedicalAlerts | null> {
 }
 
 /**
- * Recupera la configurazione di una fase post-operatoria da /fasi/{faseId}.
- * Restituisce null se il documento non è ancora stato creato su Firestore.
+ * Recupera TUTTE le fasi post-operatorie da /fasi, ordinate per giorno d'inizio.
+ * Restituisce un array vuoto se la collezione non è ancora stata popolata.
+ *
+ * Legge l'intera collezione e non un singolo documento perché la fase non è più
+ * un id salvato sul paziente: si deriva confrontando il giorno post-operatorio
+ * con i `giorniRange`, e per farlo servono tutti gli intervalli.
  */
-export async function getPhaseConfig(
-  faseId: PostOpPhase
-): Promise<PostOpPhaseConfig | null> {
-  const snap = await getDoc(doc(db, "fasi", faseId));
-  if (!snap.exists()) return null;
-  return { ...snap.data(), id: snap.id } as PostOpPhaseConfig;
+export async function getAllPhaseConfigs(): Promise<PostOpPhaseConfig[]> {
+  const snap = await getDocs(collection(db, "fasi"));
+  const fasi = snap.docs.map((d) => ({ ...d.data(), id: d.id })) as PostOpPhaseConfig[];
+  return fasi.sort((a, b) => a.giorniRange[0] - b.giorniRange[0]);
 }
 
 // ---------------------------------------------------------------------------

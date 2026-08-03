@@ -32,9 +32,11 @@ import {
   getMedicalAlerts,
 } from "@/lib/firebase/firestore";
 import { parseDataLocale } from "@/lib/utils/date";
+import { calcolaStatoFase, faseDiStato } from "@/lib/utils/fase";
+import { useFasi } from "@/hooks/useFasi";
 import type { UtenteWithStatus } from "@/components/studio/PazienteCard";
 import type { QuickFilterType } from "@/components/studio/SearchAndFilterBar";
-import type { PostOpPhase } from "@/types";
+import type { PostOpPhase, PostOpPhaseConfig } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Tipo del context
@@ -46,6 +48,14 @@ interface StudioPazientiContextValue {
   /** Pazienti dopo ricerca e filtri, nello stesso ordine. */
   pazientiFiltrati: UtenteWithStatus[];
   loading: boolean;
+
+  /**
+   * Le fasi configurate, per le voci del filtro "per fase". Vengono da qui e non
+   * da un elenco scritto a mano nella barra dei filtri: il filtro confronta la
+   * fase DERIVATA da questi stessi intervalli, e due liste separate potrebbero
+   * offrire una fase che non esiste più o nasconderne una nuova.
+   */
+  fasi: PostOpPhaseConfig[];
 
   searchQuery: string;
   setSearchQuery: (v: string) => void;
@@ -75,6 +85,7 @@ const StudioPazientiContext = createContext<
 export function StudioPazientiProvider({ children }: { children: ReactNode }) {
   const [pazienti, setPazienti] = useState<UtenteWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const { fasi, loading: fasiLoading } = useFasi();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<QuickFilterType>("tutti");
@@ -152,11 +163,18 @@ export function StudioPazientiProvider({ children }: { children: ReactNode }) {
 
       if (filterType === "allerta") return u.hasAlert;
       if (filterType === "novita") return !!u.haNuovoLogNonLetto;
-      if (filterType === "fase")
-        return selectedFase ? u.faseAttualeId === selectedFase : true;
+      if (filterType === "fase") {
+        if (!selectedFase) return true;
+        // La fase si deriva qui, non si legge dal documento: `faseAttualeId` era
+        // scritto alla creazione e mai aggiornato, quindi filtrare su quel campo
+        // significava selezionare i pazienti in base a dove si trovavano il
+        // giorno dell'iscrizione. Un paziente in pre-operatorio o a percorso
+        // concluso non ha una fase e resta fuori da qualsiasi selezione.
+        return faseDiStato(calcolaStatoFase(u, fasi))?.id === selectedFase;
+      }
       return true;
     });
-  }, [pazienti, searchQuery, filterType, selectedFase]);
+  }, [pazienti, searchQuery, filterType, selectedFase, fasi]);
 
   const resetFilters = useCallback(() => {
     setSearchQuery("");
@@ -178,7 +196,8 @@ export function StudioPazientiProvider({ children }: { children: ReactNode }) {
     () => ({
       pazienti,
       pazientiFiltrati,
-      loading,
+      loading: loading || fasiLoading,
+      fasi,
       searchQuery,
       setSearchQuery,
       filterType,
@@ -192,6 +211,8 @@ export function StudioPazientiProvider({ children }: { children: ReactNode }) {
       pazienti,
       pazientiFiltrati,
       loading,
+      fasiLoading,
+      fasi,
       searchQuery,
       filterType,
       selectedFase,

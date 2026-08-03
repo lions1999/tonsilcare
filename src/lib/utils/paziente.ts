@@ -1,14 +1,14 @@
 /**
  * @file src/lib/utils/paziente.ts
- * @description Valori derivati dal profilo paziente (età, BMI, giorno post-operatorio).
+ * @description Valori derivati dal profilo paziente (età, BMI).
  * Calcolati a runtime e mai salvati su Firestore, per evitare che vadano fuori
- * sincrono con i dati grezzi (dataNascita, peso, altezza, dataOperazione) da cui derivano.
+ * sincrono con i dati grezzi (dataNascita, peso, altezza) da cui derivano.
  *
  * `dataNascita` e `dataOperazione` sono stringhe solo-data: vanno lette con
  * `parseDataLocale`, mai con `new Date()`. Il perché è in src/lib/utils/date.ts.
  */
 
-import { parseDataLocale, differenzaInGiorni, oggiLocale } from "./date";
+import { parseDataLocale } from "./date";
 
 /** Età in anni compiuti, calcolata da una data di nascita ISO 8601. */
 export function calcolaEta(dataNascita: string): number {
@@ -31,7 +31,10 @@ export function calcolaBMI(pesoKg: number, altezzaCm: number): number {
   return pesoKg / (altezzaM * altezzaM);
 }
 
-/** Giorno post-operatorio corrente (0 = giorno dell'intervento), da una data ISO 8601. */
-export function calcolaGiornoPostOp(dataOperazione: string): number {
-  return Math.max(0, differenzaInGiorni(parseDataLocale(dataOperazione), oggiLocale()));
-}
+/*
+ * `calcolaGiornoPostOp` viveva qui e troncava i valori negativi a zero. È stata
+ * sostituita da `calcolaGiorniDaOperazione` in lib/utils/fase.ts, che restituisce
+ * il valore con segno: un intervento previsto e non ancora eseguito dà un numero
+ * negativo, e da quello nasce lo stato pre-operatorio. Due funzioni quasi uguali
+ * sullo stesso dato sono la premessa perché divergano, quindi ne resta una sola.
+ */

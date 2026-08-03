@@ -7,17 +7,9 @@
 
 import { useState } from "react";
 import { Search, AlertTriangle, Sparkles, SlidersHorizontal, ChevronDown } from "lucide-react";
-import type { PostOpPhase } from "@/types";
+import type { PostOpPhase, PostOpPhaseConfig } from "@/types";
 
 export type QuickFilterType = "tutti" | "allerta" | "novita" | "fase";
-
-const FASE_OPTIONS: { value: PostOpPhase; label: string }[] = [
-  { value: "fase_1", label: "Fase 1" },
-  { value: "fase_2", label: "Fase 2" },
-  { value: "fase_3", label: "Fase 3" },
-  { value: "fase_4", label: "Fase 4" },
-  { value: "fase_5", label: "Fase 5" },
-];
 
 interface SearchAndFilterBarProps {
   searchQuery: string;
@@ -26,6 +18,14 @@ interface SearchAndFilterBarProps {
   onFilterTypeChange: (v: QuickFilterType) => void;
   selectedFase: PostOpPhase | null;
   onFaseChange: (v: PostOpPhase | null) => void;
+  /**
+   * Le fasi configurate, dallo StudioPazientiContext. Qui c'era un elenco
+   * scritto a mano di cinque voci: se il cliente ne toglie una, quell'elenco
+   * offrirebbe una fase inesistente (zero risultati sempre); se ne aggiunge una,
+   * i pazienti che ci finiscono sparirebbero dalla lista filtrata. In nessuno
+   * dei due casi comparirebbe un errore.
+   */
+  fasi: PostOpPhaseConfig[];
 }
 
 export default function SearchAndFilterBar({
@@ -35,11 +35,12 @@ export default function SearchAndFilterBar({
   onFilterTypeChange,
   selectedFase,
   onFaseChange,
+  fasi,
 }: SearchAndFilterBarProps) {
   const [faseDropdownOpen, setFaseDropdownOpen] = useState(false);
 
   const faseLabel = selectedFase
-    ? FASE_OPTIONS.find((f) => f.value === selectedFase)?.label
+    ? fasi.find((f) => f.id === selectedFase)?.titolo ?? "Fase"
     : "Fase";
 
   return (
@@ -107,7 +108,7 @@ export default function SearchAndFilterBar({
             }`}
           >
             <SlidersHorizontal size={12} />
-            {faseLabel}
+            <span className="max-w-[120px] truncate">{faseLabel}</span>
             <ChevronDown size={12} className={`transition-transform ${faseDropdownOpen ? "rotate-180" : ""}`} />
           </button>
 
@@ -121,25 +122,25 @@ export default function SearchAndFilterBar({
               <div
                 role="listbox"
                 aria-label="Filtra per fase post-operatoria"
-                className="absolute left-0 top-full z-50 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/40"
+                className="absolute left-0 top-full z-50 mt-1 min-w-[220px] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/40"
               >
-                {FASE_OPTIONS.map((opt) => (
+                {fasi.map((fase) => (
                   <button
-                    key={opt.value}
+                    key={fase.id}
                     role="option"
-                    aria-selected={selectedFase === opt.value}
+                    aria-selected={selectedFase === fase.id}
                     onClick={() => {
-                      onFaseChange(opt.value);
+                      onFaseChange(fase.id);
                       onFilterTypeChange("fase");
                       setFaseDropdownOpen(false);
                     }}
                     className={`flex w-full items-center px-4 py-2.5 text-left text-sm transition-colors ${
-                      selectedFase === opt.value
+                      selectedFase === fase.id
                         ? "bg-indigo-900/40 text-indigo-300"
                         : "text-slate-200 hover:bg-slate-800"
                     }`}
                   >
-                    {opt.label}
+                    {fase.titolo}
                   </button>
                 ))}
               </div>

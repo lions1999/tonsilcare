@@ -39,6 +39,7 @@ export default function ListaPazienti() {
     selectedFase,
     setSelectedFase,
     resetFilters,
+    fasi,
   } = useStudioPazienti();
 
   return (
@@ -71,6 +72,7 @@ export default function ListaPazienti() {
           onFilterTypeChange={setFilterType}
           selectedFase={selectedFase}
           onFaseChange={setSelectedFase}
+          fasi={fasi}
         />
       </header>
 

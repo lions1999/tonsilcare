@@ -13,29 +13,20 @@
 
 import { useState, type FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Baby, AlertCircle, CalendarDays, Scale, Ruler, Stethoscope, ShieldAlert } from "lucide-react";
+import { Loader2, Baby, AlertCircle, CalendarDays, Scale, Ruler, Stethoscope, ShieldAlert, Activity } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useUtente } from "@/context/UtenteContext";
 import { addUtente } from "@/lib/firebase/firestore";
 import { calcolaBMI } from "@/lib/utils/paziente";
 import { oggiPerInputDate } from "@/lib/utils/date";
+import { calcolaStatoFase } from "@/lib/utils/fase";
+import { useFasi } from "@/hooks/useFasi";
 import {
   utenteProfileSchema,
   parseListaTesto,
   TIPI_INTERVENTO,
 } from "@/lib/validations/utente";
-import type { PostOpPhase, TipoIntervento } from "@/types";
-
-// ---------------------------------------------------------------------------
-// Configurazione fasi (etichette UI — la config completa è su Firestore)
-// ---------------------------------------------------------------------------
-const FASI: { value: PostOpPhase; label: string; range: string }[] = [
-  { value: "fase_1", label: "Fase 1 — Liquidi freddi",    range: "Giorno 0–1" },
-  { value: "fase_2", label: "Fase 2 — Semiliquidi",       range: "Giorno 2–4" },
-  { value: "fase_3", label: "Fase 3 — Alimenti morbidi",  range: "Giorno 5–7" },
-  { value: "fase_4", label: "Fase 4 — Transizione",       range: "Giorno 8–10" },
-  { value: "fase_5", label: "Fase 5 — Normale",           range: "Giorno 11+" },
-];
+import type { TipoIntervento } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Componente
@@ -47,6 +38,7 @@ function UtenteForm() {
   const isPrimo = searchParams.get("primo") === "true";
   const { user } = useAuth();
   const { refetch } = useUtente();
+  const { fasi } = useFasi();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +48,6 @@ function UtenteForm() {
   const [cognome, setCognome] = useState("");
   const [dataNascita, setDataNascita] = useState("");
   const [dataOperazione, setDataOperazione] = useState("");
-  const [faseAttualeId, setFaseAttualeId] = useState<PostOpPhase>("fase_1");
   const [tipoIntervento, setTipoIntervento] = useState<TipoIntervento | "">("");
   const [pesoIniziale, setPesoIniziale] = useState("");
   const [altezza, setAltezza] = useState("");
@@ -71,6 +62,14 @@ function UtenteForm() {
       ? calcolaBMI(pesoNum, altezzaNum)
       : null;
 
+  // Anteprima della fase: mostra cosa produrrà la data scelta, senza che sia
+  // modificabile. Il genitore sceglieva la fase a mano e non la aggiornava mai
+  // più, quindi dopo pochi giorni il piano alimentare era quello sbagliato.
+  const anteprimaFase =
+    dataOperazione && fasi.length > 0
+      ? calcolaStatoFase({ dataOperazione }, fasi)
+      : null;
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
@@ -80,20 +79,14 @@ function UtenteForm() {
       return;
     }
 
-    // Validazione date
-    const oggi = new Date();
-    const opDate = new Date(dataOperazione);
-    if (opDate > oggi) {
-      setError("La data dell'operazione non può essere nel futuro.");
-      return;
-    }
-
+    // Nessun controllo sulla data dell'operazione: una data futura è un
+    // intervento previsto, non un errore. Vedi lo stato pre-operatorio in
+    // lib/utils/fase.ts.
     const parsed = utenteProfileSchema.safeParse({
       nome: nome.trim(),
       cognome: cognome.trim(),
       dataNascita,
       dataOperazione,
-      faseAttualeId,
       tipoIntervento: tipoIntervento || undefined,
       pesoIniziale: pesoNum,
       altezza: altezzaNum,
@@ -219,16 +212,63 @@ function UtenteForm() {
             <CalendarDays size={14} className="inline mr-1.5 text-slate-400" />
             Data dell&apos;operazione
           </label>
+          {/*
+            Senza `max`: la data può essere nel futuro, perché la scheda si apre
+            anche per un intervento solo programmato.
+          */}
           <input
             id="paz-operazione"
             type="date"
             required
             value={dataOperazione}
             onChange={(e) => setDataOperazione(e.target.value)}
-            max={oggiPerInputDate()}
             className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:opacity-50 [color-scheme:dark]"
             disabled={loading}
           />
+          <p className="text-xs text-slate-500">
+            Se l&apos;intervento è programmato, indica la data prevista.
+          </p>
+
+          {/* Anteprima della fase derivata — sola lettura */}
+          {anteprimaFase && (
+            <div
+              aria-live="polite"
+              className="flex items-start gap-2.5 rounded-xl border border-slate-700/60 bg-slate-800/40 px-3.5 py-3"
+            >
+              <Activity size={14} className="mt-0.5 flex-shrink-0 text-blue-400" />
+              <div className="text-xs">
+                {anteprimaFase.tipo === "pre_operatorio" && (
+                  <p className="text-slate-300">
+                    Intervento tra{" "}
+                    <strong className="text-white">
+                      {anteprimaFase.giorniAllIntervento}{" "}
+                      {anteprimaFase.giorniAllIntervento === 1 ? "giorno" : "giorni"}
+                    </strong>
+                    . Il piano alimentare comparirà dal giorno dell&apos;operazione.
+                  </p>
+                )}
+                {anteprimaFase.tipo === "in_fase" && (
+                  <p className="text-slate-300">
+                    Oggi è il{" "}
+                    <strong className="text-white">{anteprimaFase.giorno}° giorno post-operatorio</strong>:{" "}
+                    <strong className="text-white">{anteprimaFase.fase.titolo}</strong>.
+                  </p>
+                )}
+                {anteprimaFase.tipo === "concluso" && (
+                  <p className="text-slate-300">
+                    Sono passati <strong className="text-white">{anteprimaFase.giorno} giorni</strong>:
+                    il percorso post-operatorio guidato è concluso.
+                  </p>
+                )}
+                {anteprimaFase.tipo === "indeterminato" && (
+                  <p className="text-slate-400">Data non valida.</p>
+                )}
+                <p className="mt-1 text-slate-500">
+                  La fase si aggiorna da sola ogni giorno. Solo il medico può modificarla.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tipo di intervento */}
@@ -348,48 +388,6 @@ function UtenteForm() {
             className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:opacity-50"
             disabled={loading}
           />
-        </div>
-
-        {/* Fase attuale */}
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-slate-300">
-            Fase post-operatoria attuale
-          </label>
-          <p className="text-xs text-slate-500 mb-2">
-            Puoi sempre aggiornare questa informazione dalla Dashboard.
-          </p>
-          <div className="space-y-2">
-            {FASI.map((fase) => (
-              <label
-                key={fase.value}
-                htmlFor={`fase-${fase.value}`}
-                className={`
-                  flex items-center justify-between
-                  rounded-xl border px-4 py-3
-                  cursor-pointer transition-all duration-150
-                  ${faseAttualeId === fase.value
-                    ? "border-blue-500 bg-blue-900/30"
-                    : "border-slate-700 bg-slate-800/40 hover:border-slate-600"
-                  }
-                `}
-              >
-                <div className="flex items-center gap-3">
-                  <input
-                    type="radio"
-                    id={`fase-${fase.value}`}
-                    name="fase"
-                    value={fase.value}
-                    checked={faseAttualeId === fase.value}
-                    onChange={() => setFaseAttualeId(fase.value)}
-                    className="accent-blue-500"
-                    disabled={loading}
-                  />
-                  <span className="text-sm font-medium text-slate-200">{fase.label}</span>
-                </div>
-                <span className="text-xs text-slate-500">{fase.range}</span>
-              </label>
-            ))}
-          </div>
         </div>
 
         {/* Submit */}

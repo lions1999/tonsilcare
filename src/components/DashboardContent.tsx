@@ -4,14 +4,20 @@
  *
  * Legge i dati reali da:
  * - UtenteContext → utente attivo (da Firestore via useUtenti)
- * - usePhaseConfig → configurazione fase (da Firestore con fallback locale)
+ * - useFasi → intervalli delle fasi (da Firestore con fallback locale)
  * - getMedicalAlerts → soglie di alert (da Firestore)
+ *
+ * La fase non arriva dal documento del paziente: si deriva ogni volta da data
+ * dell'intervento e giorno corrente (lib/utils/fase.ts), quindi la dashboard
+ * cambia da sola al passare dei giorni. Prima era un campo scelto una volta e
+ * mai aggiornato, e il piano alimentare restava indietro senza segnalarlo.
  *
  * Gestisce:
  * - Stato di caricamento (skeleton)
  * - Empty State (nessun paziente registrato)
  * - Errori Firestore
- * - Calcolo giorno post-operatorio
+ * - I quattro stati della fase: pre-operatorio, in fase, forzata dal medico,
+ *   percorso concluso
  */
 
 "use client";
@@ -28,15 +34,18 @@ import {
   Clock,
   Heart,
   RefreshCw,
+  CalendarClock,
+  CircleCheck,
+  Lock,
 } from "lucide-react";
 
 import { useAuth } from "@/context/AuthContext";
 import { useUtente } from "@/context/UtenteContext";
-import { usePhaseConfig } from "@/hooks/usePhaseConfig";
+import { useFasi } from "@/hooks/useFasi";
 import { getMedicalAlerts } from "@/lib/firebase/firestore";
 import { useDailyLogs } from "@/hooks/useDailyLogs";
 import type { DailyLog } from "@/lib/validations/diary";
-import { calcolaGiornoPostOp } from "@/lib/utils/paziente";
+import { calcolaStatoFase, faseDiStato, type StatoFase } from "@/lib/utils/fase";
 import { TIPI_INTERVENTO } from "@/lib/validations/utente";
 import EmptyState from "@/components/EmptyState";
 import UserMenu from "@/components/UserMenu";
@@ -87,16 +96,46 @@ function DashboardSkeleton() {
   );
 }
 
+/**
+ * Il contatore in alto a destra. Prima dell'intervento conta alla rovescia,
+ * dopo conta i giorni post-operatori: il numero da solo sarebbe ambiguo, ed è
+ * la ragione per cui non basta mostrare un valore negativo.
+ */
+function ContatoreGiorni({ stato }: { stato: StatoFase }) {
+  if (stato.tipo === "pre_operatorio") {
+    return (
+      <div className="flex min-w-[60px] flex-col items-center rounded-xl bg-white/15 px-3 py-2 backdrop-blur-sm">
+        <span className="text-2xl font-black leading-none text-white">
+          {stato.giorniAllIntervento}
+        </span>
+        <span className="text-center text-[10px] leading-tight text-blue-100/80">
+          giorni<br />all&apos;intervento
+        </span>
+      </div>
+    );
+  }
+
+  if (stato.tipo === "indeterminato") return null;
+
+  return (
+    <div className="flex min-w-[60px] flex-col items-center rounded-xl bg-white/15 px-3 py-2 backdrop-blur-sm">
+      <span className="text-2xl font-black leading-none text-white">{stato.giorno}°</span>
+      <span className="text-center text-[10px] leading-tight text-blue-100/80">
+        giorno<br />post-op
+      </span>
+    </div>
+  );
+}
+
 /** Card Stato Utente */
 function UtenteStatusCard({
   utente,
-  phase,
-  giornoPostOp,
+  stato,
 }: {
   utente: UtenteProfile;
-  phase: PostOpPhaseConfig;
-  giornoPostOp: number;
+  stato: StatoFase;
 }) {
+  const fase = faseDiStato(stato);
   return (
     <article
       aria-label="Stato dell'utente operato"
@@ -118,32 +157,70 @@ function UtenteStatusCard({
             {TIPI_INTERVENTO.find((t) => t.value === utente.tipoIntervento)?.label ?? "Tipo intervento non specificato"}
           </p>
         </div>
-        <div className="flex min-w-[60px] flex-col items-center rounded-xl bg-white/15 px-3 py-2 backdrop-blur-sm">
-          <span className="text-2xl font-black leading-none text-white">{giornoPostOp}°</span>
-          <span className="text-center text-[10px] leading-tight text-blue-100/80">
-            giorno<br />post-op
-          </span>
-        </div>
+        <ContatoreGiorni stato={stato} />
       </div>
+
+      {/*
+        Il forzamento va detto al genitore, non solo al medico: senza, vedrebbe
+        una fase che non torna con il giorno mostrato sopra e nessuna spiegazione.
+      */}
+      {stato.tipo === "forzata" && (
+        <div className="relative mb-3 flex items-start gap-2 rounded-xl border border-amber-300/40 bg-amber-400/15 px-3 py-2.5">
+          <Lock size={13} className="mt-0.5 flex-shrink-0 text-amber-200" />
+          <div className="text-xs">
+            <p className="font-semibold text-amber-100">Fase impostata dal medico</p>
+            {stato.motivo && <p className="mt-0.5 text-amber-100/80">{stato.motivo}</p>}
+          </div>
+        </div>
+      )}
 
       <div className="relative mb-4 rounded-xl bg-white/10 p-3 backdrop-blur-sm">
-        <div className="mb-1 flex items-center gap-2">
-          <Activity size={14} className="flex-shrink-0 text-blue-200" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-blue-100">
-            {phase.titolo}
-          </span>
-        </div>
-        <p className="text-sm leading-relaxed text-blue-50/90">{phase.descrizione}</p>
+        {fase ? (
+          <>
+            <div className="mb-1 flex items-center gap-2">
+              <Activity size={14} className="flex-shrink-0 text-blue-200" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-blue-100">
+                {fase.titolo}
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed text-blue-50/90">{fase.descrizione}</p>
+          </>
+        ) : (
+          <>
+            <div className="mb-1 flex items-center gap-2">
+              {stato.tipo === "pre_operatorio" ? (
+                <CalendarClock size={14} className="flex-shrink-0 text-blue-200" />
+              ) : (
+                <CircleCheck size={14} className="flex-shrink-0 text-blue-200" />
+              )}
+              <span className="text-xs font-semibold uppercase tracking-wide text-blue-100">
+                {stato.tipo === "pre_operatorio" && "In attesa dell'intervento"}
+                {stato.tipo === "concluso" && "Percorso concluso"}
+                {stato.tipo === "indeterminato" && "Data dell'intervento non valida"}
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed text-blue-50/90">
+              {stato.tipo === "pre_operatorio" &&
+                "Le indicazioni alimentari compariranno il giorno dell'operazione."}
+              {stato.tipo === "concluso" &&
+                `Sono passati ${stato.giorno} giorni dall'intervento: il percorso guidato copre i primi ${stato.ultimoGiornoPrevisto}. Per qualsiasi dubbio residuo, contatta il medico.`}
+              {stato.tipo === "indeterminato" &&
+                "Non riusciamo a calcolare il giorno post-operatorio. Verifica la data nella scheda del bambino."}
+            </p>
+          </>
+        )}
       </div>
 
-      <ul className="relative space-y-1.5">
-        {phase.consigli.slice(0, 2).map((consiglio, i) => (
-          <li key={i} className="flex items-start gap-2 text-xs text-blue-100/80">
-            <span className="mt-0.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-300" />
-            {consiglio}
-          </li>
-        ))}
-      </ul>
+      {fase && (
+        <ul className="relative space-y-1.5">
+          {fase.consigli.slice(0, 2).map((consiglio, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-blue-100/80">
+              <span className="mt-0.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-300" />
+              {consiglio}
+            </li>
+          ))}
+        </ul>
+      )}
     </article>
   );
 }
@@ -339,10 +416,8 @@ export default function DashboardContent() {
   const { utenti, activeUtente, loading: utentiLoading, error: utentiError, refetch: refetchUtenti } = useUtente();
   const { latestLog, loading: logLoading, refetch: refetchLogs } = useDailyLogs();
 
-  // Carica configurazione fase per l'utente attivo
-  const { phaseConfig, loading: phaseLoading } = usePhaseConfig(
-    activeUtente?.faseAttualeId ?? null
-  );
+  // Gli intervalli delle fasi; la fase del paziente si deriva da questi.
+  const { fasi, loading: fasiLoading } = useFasi();
 
   // Carica alert medici da Firestore
   const [alerts, setAlerts] = useState<MedicalAlerts>(DEFAULT_ALERTS);
@@ -383,7 +458,7 @@ export default function DashboardContent() {
   }, [activeUtente?.id]);
 
   // ---- STATI DI CARICAMENTO ----
-  const isLoading = utentiLoading || (activeUtente !== null && (phaseLoading || logLoading));
+  const isLoading = utentiLoading || (activeUtente !== null && (fasiLoading || logLoading));
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -428,11 +503,12 @@ export default function DashboardContent() {
   }
 
   // ---- DASHBOARD COMPLETA ----
-  if (!activeUtente || !phaseConfig) {
+  if (!activeUtente) {
     return <DashboardSkeleton />;
   }
 
-  const giornoPostOp = calcolaGiornoPostOp(activeUtente.dataOperazione);
+  const stato = calcolaStatoFase(activeUtente, fasi);
+  const fase = faseDiStato(stato);
 
   return (
     <div className="min-h-full bg-slate-950">
@@ -488,18 +564,20 @@ export default function DashboardContent() {
 
         {/* Colonna sinistra: stato clinico del bambino */}
         <div className="space-y-4">
-          <UtenteStatusCard
-            utente={activeUtente}
-            phase={phaseConfig}
-            giornoPostOp={giornoPostOp}
-          />
+          <UtenteStatusCard utente={activeUtente} stato={stato} />
           <VitalsQuickCard log={latestLog} />
         </div>
 
         {/* Colonna destra: comunicazioni e indicazioni */}
         <div className="space-y-4">
           <PrescrizioniCard prescrizioni={prescrizioni} />
-          <MealPlanCard phase={phaseConfig} />
+          {/*
+            Il piano alimentare esiste solo se c'è una fase. Prima dell'intervento
+            e a percorso concluso la card sparisce invece di mostrare le
+            indicazioni dell'ultima fase configurata, che a quel punto sarebbero
+            vecchie di settimane pur sembrando attuali.
+          */}
+          {fase && <MealPlanCard phase={fase} />}
         </div>
 
         {/* CTA Aggiungi Log */}
