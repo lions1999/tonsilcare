@@ -46,7 +46,12 @@ import type {
 export async function getAccountProfile(uid: string): Promise<AccountProfile | null> {
   const snap = await getDoc(doc(db, "accounts", uid));
   if (!snap.exists()) return null;
-  return { uid, ...snap.data() } as AccountProfile;
+  // `uid` dopo lo spread. Il documento contiene un campo `uid` (lo scrive
+  // signUp), e con lo spread dopo era quel campo a vincere sull'uid autenticato
+  // ricevuto come argomento. Questa è la collezione da cui le regole leggono
+  // `ruolo`: l'identità con cui l'app lavora deve venire dal chiamante
+  // autenticato, mai da un valore scritto dentro al documento.
+  return { ...snap.data(), uid } as AccountProfile;
 }
 
 /**
