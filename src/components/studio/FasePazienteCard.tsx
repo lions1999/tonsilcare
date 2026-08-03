@@ -208,10 +208,23 @@ export default function FasePazienteCard({
                 Motivo clinico
               </label>
               {/*
-                Obbligatorio: il motivo viene mostrato al genitore insieme alla
-                fase forzata. Senza, vedrebbe indicazioni che non corrispondono
-                al giorno post-operatorio e nessuna spiegazione.
+                Resta obbligatorio anche se non è più rivolto al genitore: il
+                forzamento scavalca il calcolo e cambia le indicazioni
+                alimentari che la famiglia riceve, quindi è l'unica traccia del
+                perché — per il medico stesso più avanti, o per un collega.
+                Una decisione che cambia la guida clinica non dovrebbe restare
+                senza motivazione. Renderlo facoltativo è una riga.
+
+                ATTENZIONE: "interno" qui vuol dire "non mostrato nell'app al
+                genitore". Il campo vive su /utenti/{id}, che il genitore può
+                leggere per intero: chi guarda le chiamate di rete lo vede. Per
+                una nota davvero privata servirebbe una sotto-collezione con
+                lettura riservata al medico.
               */}
+              <p className="text-[11px] text-slate-500">
+                Nota interna: non viene mostrata al genitore, che vede solo
+                &laquo;fase impostata dal medico&raquo;.
+              </p>
               <textarea
                 id="fase-motivo"
                 rows={2}

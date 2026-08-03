@@ -163,14 +163,24 @@ function UtenteStatusCard({
       {/*
         Il forzamento va detto al genitore, non solo al medico: senza, vedrebbe
         una fase che non torna con il giorno mostrato sopra e nessuna spiegazione.
+
+        Ambra piena e non trasparente: su questa card in gradiente blu una
+        `bg-amber-400/15` si lavava fino a diventare un pannello azzurrino,
+        tonalmente identico al box della fase qui sotto. Un marcatore di
+        eccezione che non si distingue dal contenuto normale non marca niente.
+
+        Il motivo clinico NON compare qui. La comunicazione al genitore passa
+        dalle prescrizioni, che sono firmate, datate e stanno su questa stessa
+        schermata: un secondo canale non progettato, a dieci pixel di distanza,
+        sarebbe solo confusione. Il medico deve poter annotare il perché di una
+        decisione senza calibrare il tono per chi legge.
       */}
       {stato.tipo === "forzata" && (
-        <div className="relative mb-3 flex items-start gap-2 rounded-xl border border-amber-300/40 bg-amber-400/15 px-3 py-2.5">
-          <Lock size={13} className="mt-0.5 flex-shrink-0 text-amber-200" />
-          <div className="text-xs">
-            <p className="font-semibold text-amber-100">Fase impostata dal medico</p>
-            {stato.motivo && <p className="mt-0.5 text-amber-100/80">{stato.motivo}</p>}
-          </div>
+        <div className="relative mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-2.5 py-1 shadow-sm">
+          <Lock size={11} className="flex-shrink-0 text-amber-950" />
+          <span className="text-[11px] font-bold text-amber-950">
+            Fase impostata dal medico
+          </span>
         </div>
       )}
 
