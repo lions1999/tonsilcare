@@ -37,6 +37,23 @@ commenti, facendo sembrare diverse due regole identiche (successo già ottenuto 
 Da rifare dopo ogni deploy su produzione. Costa trenta secondi e sostituisce la fiducia con
 una prova.
 
+### ⚠️ Produzione è indietro rispetto al repo (dal 2026-08-03)
+
+`firestore.rules` è stato modificato per l'override della fase (il medico può scrivere i campi
+`faseOverride*`, il genitore no) ed è stato **pubblicato solo su `tonsilcare-dev`** — verificato
+con il metodo qui sopra: ruleset `aa031db7-…`, 192 righe, 0 differenze.
+
+Su `tonsilcare-app` non è stato fatto nulla. Conseguenza concreta: in produzione il calcolo
+automatico della fase funziona (è sola lettura), ma **il medico che prova a forzare una fase
+riceve `permission-denied`**. Quando si decide di allinearla:
+
+```bash
+firebase deploy --only firestore:rules --project prod
+```
+
+e subito dopo la verifica REST, che ora comprende anche i due rami nuovi su `/utenti`.
+Togliere questo riquadro solo dopo che la verifica dà 0 differenze su `tonsilcare-app`.
+
 Le regole sono state irrigidite dopo un audit. Tre punti non erano marcati da alcun TODO e vanno lasciati come sono, salvo decisione esplicita:
 
 - **`/accounts` update ha una allowlist** (`nome`, `cognome`, `haRispostaMedicoNonLetta`, `updatedAt`). Prima era libera, e `ruolo` era scrivibile dal client: **qualunque genitore poteva promuoversi a medico** scrivendo sul proprio documento, e da lì leggere schede e diari di tutti i bambini e creare prescrizioni, perché `isMedico()` legge esattamente quel campo. La promozione a medico si fa da Console o Admin SDK, che non passano dalle regole. Se serve permettere la modifica di un nuovo campo di profilo, si aggiunge all'elenco — non si riapre l'update.
@@ -68,7 +85,9 @@ firebase deploy --only firestore:rules,firestore:indexes --project prod   # solo
 
 Campi del profilo paziente (`UtenteProfile` in `src/types/index.ts`):
 
-- Base: `nome`, `cognome`, `dataNascita`, `dataOperazione`, `faseAttualeId`, `accountId`, `noteClinicare?`
+- Base: `nome`, `cognome`, `dataNascita`, `dataOperazione`, `accountId`, `noteClinicare?`
+- **Deprecato il 2026-08-03: `faseAttualeId?`** — la fase non si salva più, si calcola (vedi la sezione sul calcolo automatico). Il campo resta sui documenti creati prima di quella data e **non viene ripulito**: bonificare dev ma non produzione darebbe due popolazioni di forma diversa. Nessun codice lo legge. Non riutilizzarlo per l'override del medico — è valorizzato su tutti i pazienti esistenti, quindi risulterebbero tutti forzati.
+- Aggiunti il 2026-08-03 (override clinico della fase): `faseOverride?` (`PostOpPhase`), `faseOverrideMotivo?` (string), `faseOverrideDa?` (uid del medico), `faseOverrideIl?` (ISO 8601 con orario)
 - Aggiunti il 2026-07-17: `tipoIntervento?` (`adenoidectomia` | `tonsillectomia` | `adenotonsillectomia`), `pesoIniziale?` (kg — baseline auxologica rilevata al momento dell'intervento, **distinta** dal peso storico che sarà tracciato nel diario giornaliero per il calcolo del calo ponderale, non ancora implementato), `altezza?` (cm), `allergieIntolleranze?` (string[]), `patologieAssociate?` (string[])
 - Aggiunto il 2026-07-17 (sistema "novità", vedi sotto): `haNuovoLogNonLetto?` (boolean)
 
@@ -108,6 +127,12 @@ node scripts/seed.mjs --dry-run          # mostra cosa scriverebbe
 node scripts/seed.mjs                    # tonsilcare-dev (default)
 ```
 
+**Prima di lanciarlo, verifica che `firebase-admin` sia installato**: il 2026-08-03 risultava
+in `devDependencies` ma assente da `node_modules`, e lo script muore con `ERR_MODULE_NOT_FOUND`
+(`npm install` lo rimette). Nota anche che `gcloud` non finisce sul PATH: dopo l'installazione
+con winget vive in `%LOCALAPPDATA%\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd`, e il
+percorso contiene spazi — va messo tra virgolette quando lo si invoca da uno script.
+
 Su produzione serve il flag esplicito, altrimenti lo script si rifiuta di partire:
 
 ```bash
@@ -117,7 +142,7 @@ node scripts/seed.mjs --project tonsilcare-app --conferma-produzione
 I contenuti vivono in `seed-data/*.json`, versionati. Gli id dei documenti sono deterministici (lo `slug`, o la chiave della fase), quindi **rieseguire lo script aggiorna invece di duplicare**. Il vecchio seeding passava da due funzioni client-callable (`seedInitialRecipes`, `seedInitialGuidelines`) invocate da pulsanti nelle pagine `/ricette` e `/info`: usavano `addDoc` senza guardia, quindi ogni click aggiungeva copie. Sono state rimosse insieme ai pulsanti, perché le regole non consentono più la scrittura dal client.
 
 **Perché ora conviene lanciarlo sempre su un ambiente nuovo:** l'assenza di queste collezioni non produce un errore, produce comportamento sbagliato silenzioso.
-- `/fasi` mancante → `usePhaseConfig.ts` ha un fallback hardcoded (`FALLBACK_PHASES`), l'app funziona comunque. Nota: quel fallback duplica `seed-data/fasi.json`, oggi allineati ma destinati a divergere — unificarli è un lavoro a sé.
+- `/fasi` mancante → `useFasi.ts` ha un fallback hardcoded (`FASI_FALLBACK`), l'app funziona comunque. Quel fallback duplica `seed-data/fasi.json`, oggi allineati ma destinati a divergere. Dal 2026-08-03 il fallback almeno **si annuncia**: `console.warn` quando `/fasi` è vuota.
 - `/config/alerts` mancante → **nessun fallback** in `src/app/studio/page.tsx`: `hasAlert` resta sempre `false` per qualsiasi paziente, a prescindere dalla gravità dei parametri. Bug osservato il 2026-07-17 su `tonsilcare-dev` (collezione `config` mai creata).
 
 Prima di investigare una feature data-driven che sembra "rotta" su un ambiente, verificare che la collezione/documento Firestore da cui dipende esista davvero, invece di assumere un bug di codice.
@@ -145,28 +170,72 @@ già esistenti (e `AccountProfile` dichiara `uid` obbligatorio), quindi va fatto
 di passaggio. Stessa cosa era `seed-data/fasi.json`, che aveva `id` come campo: lì è già stato
 rimosso.
 
-## Le fasi post-operatorie sono definite in TRE posti (2026-08-03)
+## Le date solo-giorno non si leggono con `new Date()` (2026-08-03)
 
-Chi cambia l'elenco delle fasi deve toccarli **tutti e tre**. Nessuno dei tre importa dagli
-altri, e nessun controllo automatico verifica che siano allineati:
+`dataNascita` e `dataOperazione` sono stringhe `YYYY-MM-DD`. Lo standard impone di
+interpretarle come **UTC**, quindi `new Date("2026-07-27")` in Italia sono le 02:00 del 27.
+Confrontarle con `new Date()`, che è l'istante locale, sposta i conti di qualche ora — e
+quelle ore bastano a cambiare il giorno di calendario. Con intervento il 27/07, alle 00:30 del
+03/08 la dashboard mostrava il **6°** giorno post-op invece del 7°, cioè il piano alimentare
+del giorno prima. A fusi negativi lo scarto è ancora più visibile: le tre schermate che
+stampano "Operato il …" mostravano il giorno precedente.
 
-1. **`seed-data/fasi.json`** → i documenti `/fasi/{faseId}` su Firestore. È la fonte che l'app
-   legge davvero, da quando `/fasi` è popolata.
-2. **`FALLBACK_PHASES` in `src/hooks/usePhaseConfig.ts`** → usato quando il documento non
-   esiste. Contenuto duplicato di (1).
-3. **`FASE_OPTIONS` in `src/components/studio/SearchAndFilterBar.tsx`** → le voci del filtro
-   "per fase" della Control Room. Nota: quel filtro **non legge `/fasi`**, confronta
-   `u.faseAttualeId === selectedFase` contro un elenco hardcoded di id.
+Usare sempre `src/lib/utils/date.ts`:
+- `parseDataLocale(iso)` per i campi solo-giorno;
+- `differenzaInGiorni(a, b)` — arrotonda, non tronca: tra due mezzanotti locali ci sono 23 o
+  25 ore nei giorni di cambio dell'ora legale;
+- `oggiPerInputDate()` per il `max` degli `<input type="date">` — `toISOString()` dà il giorno
+  UTC, e dopo mezzanotte vietava di selezionare la giornata in corso.
 
-Perché è urgente e non un debito qualsiasi: **il cliente deve ancora confermare se le fasi
-sono 4 o 5.** Quando risponderà, aggiornarne due su tre produce un fallimento silenzioso —
-la solita famiglia di bug di questo progetto. Se si aggiungesse una fase senza toccare (3),
-il filtro non la mostrerebbe e quei pazienti sparirebbero dalla Control Room filtrata; se si
-rimuovesse una fase senza toccare (3), il filtro offrirebbe una fase che non esiste più e
-restituirebbe sempre zero pazienti. In nessuno dei due casi compare un errore.
+`createdAt` e `timestamp` sono invece istanti veri (ISO con orario): per quelli `new Date()`
+è corretto e queste funzioni non servono. `calcolaGiornoPostOp` non esiste più: troncava i
+negativi a zero, ed è stata sostituita da `calcolaGiorniDaOperazione` in `lib/utils/fase.ts`,
+che restituisce il valore con segno.
 
-Unificarli è un lavoro a sé, non ancora fatto. Nel frattempo: **cambiare le fasi in tre
-posti, e verificare la Control Room dopo, non solo la dashboard.**
+## La fase post-operatoria si calcola, non si dichiara (2026-08-03)
+
+Il form chiedeva sia `dataOperazione` sia `faseAttualeId`, ma la seconda si ricava dalla
+prima. La fase veniva scritta alla creazione della scheda e **non aggiornata mai più**
+(`updateUtentePhase` esisteva e non era chiamata da nessuna parte), quindi dopo pochi giorni
+il documento diceva il falso: "figlio prova" risultava al 7° giorno post-op e insieme in
+"FASE 1 — liquidi freddi". Non è cosmetico — da quel valore dipende il piano alimentare che
+legge il genitore.
+
+Oggi `src/lib/utils/fase.ts` deriva lo stato da data dell'intervento, giorno corrente e
+`giorniRange` delle fasi. **In quel file non compare nessun numero di giorni**: gli intervalli
+arrivano da `/fasi`, e questo vale anche per la soglia oltre la quale il percorso è concluso,
+che è il massimo dei range configurati. Cambiare le fasi resta una modifica di dati.
+
+Quattro stati, non uno:
+- **pre-operatorio** — `dataOperazione` può essere nel futuro (la specifica prevede
+  l'intervento "previsto o eseguito"). Il form non vieta più le date future.
+- **in fase** — il caso normale.
+- **percorso concluso** — oltre l'ultimo giorno coperto. Il piano alimentare **sparisce**
+  invece di mostrare per sempre l'ultima fase, che a 30 giorni direbbe ancora "recupero quasi
+  completo, visita di controllo".
+- **indeterminato** — data illeggibile o `/fasi` vuota, dichiarato invece di restituire un
+  numero che sembra valido.
+
+L'override del medico (`faseOverride`) vince su tutto ed è mostrato come forzato a entrambi.
+Se punta a una fase non più configurata, si ricade sul calcolo automatico invece di non
+mostrare niente.
+
+### Le fasi sono ancora definite in DUE posti (erano tre)
+
+1. **`seed-data/fasi.json`** → i documenti `/fasi/{faseId}`. È la fonte che l'app legge.
+2. **`FASI_FALLBACK` in `src/hooks/useFasi.ts`** → usato solo se `/fasi` è vuota o
+   irraggiungibile. Contenuto duplicato di (1). Da quando esiste, quando scatta lo dice in
+   console: prima una `/fasi` vuota era indistinguibile dal funzionamento normale.
+
+Il terzo posto — `FASE_OPTIONS` in `SearchAndFilterBar.tsx` — **non esiste più**: le voci del
+filtro "per fase" vengono dalle stesse fasi caricate, e il filtro confronta la fase *derivata*
+invece di `faseAttualeId`. Prima quel filtro selezionava i pazienti in base a dove si
+trovavano il giorno dell'iscrizione, e con 4 fasi avrebbe offerto una fase inesistente.
+
+**Il cliente deve ancora confermare se le fasi sono 4 o 5.** Quando risponderà: aggiornare
+`seed-data/fasi.json`, rilanciare il seed, allineare `FASI_FALLBACK`. Il resto segue da solo,
+Control Room compresa. Nota che il tipo `PostOpPhase` è un'unione di cinque id: togliere una
+fase dai dati non aggiorna il tipo, e aggiungerne una richiede di toccarlo.
 
 ## Cookie `__role`: scrittura sincrona al login/registrazione (2026-07-17)
 
