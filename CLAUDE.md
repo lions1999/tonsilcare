@@ -170,6 +170,36 @@ già esistenti (e `AccountProfile` dichiara `uid` obbligatorio), quindi va fatto
 di passaggio. Stessa cosa era `seed-data/fasi.json`, che aveva `id` come campo: lì è già stato
 rimosso.
 
+## `backdrop-blur` sull'header rompe i figli `position: fixed` (2026-08-03)
+
+Gli header di questo progetto usano `backdrop-blur-xl`. `backdrop-filter` (come `transform`,
+`filter`, `will-change`, `contain`, `perspective`) **crea un blocco contenitore per i
+discendenti `position: fixed`**: dentro quell'header, `fixed` non significa più "rispetto al
+viewport" ma "rispetto all'header". Non è deducibile leggendo il codice — la classe sta su un
+elemento, l'effetto si vede su un altro.
+
+Cosa è costato finora, in `SearchAndFilterBar.tsx`:
+- il menu del filtro "Fase" posizionato con coordinate da `getBoundingClientRect()` finiva
+  **264px lontano dal bottone**, perché le coordinate del viewport venivano risolte contro
+  l'origine dell'header;
+- l'overlay `fixed inset-0` che chiude il menu al click fuori **copriva solo l'header** invece
+  della pagina: cliccare altrove non chiudeva niente. Era rotto da sempre, per la stessa
+  ragione, e nessuno se n'era accorto perché il menu era già inutilizzabile per un altro
+  motivo (vedi sotto).
+
+**Qualunque dropdown, tooltip, popover o overlay che nasca dentro un header con
+`backdrop-blur` avrà lo stesso problema.** La soluzione usata è un portale su `document.body`
+(`createPortal`), che toglie l'elemento da sotto quell'ancoraggio. Non correggere le
+coordinate a mano compensando l'offset dell'header: funzionerebbe finché qualcuno non aggiunge
+un `transform` da un'altra parte, e allora si romperebbe di nuovo in silenzio.
+
+Nota collegata sullo stesso file: la riga dei filtri ha `overflow-x-auto`, e **il CSS forza
+l'asse non specificato da `visible` ad `auto`**. Quel contenitore quindi ritaglia anche in
+verticale (`clientHeight` 34px contro un menu da 222px), e ritagliava il menu a tutte le
+larghezze, mobile compreso. L'`overflow-x` serve davvero — con una fase selezionata la riga
+misura 463px contro 396 disponibili — quindi la via d'uscita è togliere il menu dal
+contenitore, non togliere l'overflow.
+
 ## Le date solo-giorno non si leggono con `new Date()` (2026-08-03)
 
 `dataNascita` e `dataOperazione` sono stringhe `YYYY-MM-DD`. Lo standard impone di
