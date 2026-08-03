@@ -37,22 +37,24 @@ commenti, facendo sembrare diverse due regole identiche (successo già ottenuto 
 Da rifare dopo ogni deploy su produzione. Costa trenta secondi e sostituisce la fiducia con
 una prova.
 
-### ⚠️ Produzione è indietro rispetto al repo (dal 2026-08-03)
+### Stato al 2026-08-03: dev e produzione allineate
 
-`firestore.rules` è stato modificato per l'override della fase (il medico può scrivere i campi
-`faseOverride*`, il genitore no) ed è stato **pubblicato solo su `tonsilcare-dev`** — verificato
-con il metodo qui sopra: ruleset `aa031db7-…`, 192 righe, 0 differenze.
+Entrambi i progetti hanno le regole dell'override della fase (il medico può scrivere i campi
+`faseOverride*`, il genitore no), verificate rileggendole:
 
-Su `tonsilcare-app` non è stato fatto nulla. Conseguenza concreta: in produzione il calcolo
-automatico della fase funziona (è sola lettura), ma **il medico che prova a forzare una fase
-riceve `permission-denied`**. Quando si decide di allinearla:
+| progetto | ruleset | righe | differenze |
+|---|---|---|---|
+| `tonsilcare-dev` | `aa031db7-…` | 192 | 0 |
+| `tonsilcare-app` | `60fadbc4-…` | 192 | 0 |
 
-```bash
-firebase deploy --only firestore:rules --project prod
-```
+sha256 `3653933a48f67681` su entrambi, uguale al file nel repo.
 
-e subito dopo la verifica REST, che ora comprende anche i due rami nuovi su `/utenti`.
-Togliere questo riquadro solo dopo che la verifica dà 0 differenze su `tonsilcare-app`.
+Lo script di verifica controlla anche che cinque **marcatori** esistano nel testo pubblicato,
+non in quello locale: l'allowlist su `/accounts`, `allow update: if false` sul diario, la
+`hasOnly` dei quattro campi `faseOverride*`, la `hasAny` che li nega al genitore, e
+`faseOverrideDa == request.auth.uid`. Un confronto di hash dice se i file coincidono; i
+marcatori dicono se le regole che contano ci sono davvero, e sopravvivono a un refuso che
+cambi il file da entrambe le parti.
 
 Le regole sono state irrigidite dopo un audit. Tre punti non erano marcati da alcun TODO e vanno lasciati come sono, salvo decisione esplicita:
 
