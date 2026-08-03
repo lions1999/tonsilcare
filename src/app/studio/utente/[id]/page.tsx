@@ -50,7 +50,7 @@ import type { DailyLog } from "@/lib/validations/diary";
 export default function UtenteDettaglioMedico() {
   const { id } = useParams<{ id: string }>();
   const { user, accountProfile } = useAuth();
-  const { segnaLetto, fasi } = useStudioPazienti();
+  const { segnaLetto, fasi, aggiornaPaziente } = useStudioPazienti();
   
   const [loading, setLoading] = useState(true);
   const [utente, setUtente] = useState<UtenteProfile | null>(null);
@@ -241,9 +241,14 @@ export default function UtenteDettaglioMedico() {
             utente={utente}
             fasi={fasi}
             medicoUid={user.uid}
-            onAggiornato={(patch) =>
-              setUtente((prec) => (prec ? { ...prec, ...patch } : prec))
-            }
+            onAggiornato={(patch) => {
+              setUtente((prec) => (prec ? { ...prec, ...patch } : prec));
+              // Anche la lista a sinistra, che resta montata: senza, il filtro
+              // "per fase" continuerebbe a derivare la fase dal documento
+              // vecchio e mostrerebbe il paziente sotto la fase calcolata
+              // mentre la sua scheda ne indica un'altra.
+              aggiornaPaziente(utente.id, patch);
+            }}
           />
         )}
 

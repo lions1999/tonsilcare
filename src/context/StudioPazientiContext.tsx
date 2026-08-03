@@ -36,7 +36,7 @@ import { calcolaStatoFase, faseDiStato } from "@/lib/utils/fase";
 import { useFasi } from "@/hooks/useFasi";
 import type { UtenteWithStatus } from "@/components/studio/PazienteCard";
 import type { QuickFilterType } from "@/components/studio/SearchAndFilterBar";
-import type { PostOpPhase, PostOpPhaseConfig } from "@/types";
+import type { PostOpPhase, PostOpPhaseConfig, UtenteProfile } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Tipo del context
@@ -72,6 +72,19 @@ interface StudioPazientiContextValue {
    * derivano da questo stato.
    */
   segnaLetto: (utenteId: string) => void;
+
+  /**
+   * Applica alla lista i campi appena scritti su un paziente. È la forma
+   * generale del bisogno che `segnaLetto` copre per il solo flag "novità": la
+   * lista non si rimonta più tra un paziente e l'altro, quindi qualunque
+   * scrittura fatta dal pannello di destra resta invisibile a sinistra finché
+   * non si ricarica la pagina.
+   *
+   * Serve in particolare all'override della fase: senza, il filtro "per fase"
+   * continuava a derivare la fase dal documento vecchio, e un paziente forzato
+   * in Fase 2 compariva sotto Fase 3 mentre la sua scheda diceva Fase 2.
+   */
+  aggiornaPaziente: (utenteId: string, patch: Partial<UtenteProfile>) => void;
 }
 
 const StudioPazientiContext = createContext<
@@ -192,6 +205,15 @@ export function StudioPazientiProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const aggiornaPaziente = useCallback(
+    (utenteId: string, patch: Partial<UtenteProfile>) => {
+      setPazienti((precedenti) =>
+        precedenti.map((u) => (u.id === utenteId ? { ...u, ...patch } : u))
+      );
+    },
+    []
+  );
+
   const value = useMemo<StudioPazientiContextValue>(
     () => ({
       pazienti,
@@ -206,6 +228,7 @@ export function StudioPazientiProvider({ children }: { children: ReactNode }) {
       setSelectedFase,
       resetFilters,
       segnaLetto,
+      aggiornaPaziente,
     }),
     [
       pazienti,
@@ -218,6 +241,7 @@ export function StudioPazientiProvider({ children }: { children: ReactNode }) {
       selectedFase,
       resetFilters,
       segnaLetto,
+      aggiornaPaziente,
     ]
   );
 
