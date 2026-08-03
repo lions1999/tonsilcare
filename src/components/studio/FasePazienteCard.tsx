@@ -215,15 +215,20 @@ export default function FasePazienteCard({
                 Una decisione che cambia la guida clinica non dovrebbe restare
                 senza motivazione. Renderlo facoltativo è una riga.
 
-                ATTENZIONE: "interno" qui vuol dire "non mostrato nell'app al
-                genitore". Il campo vive su /utenti/{id}, che il genitore può
-                leggere per intero: chi guarda le chiamate di rete lo vede. Per
-                una nota davvero privata servirebbe una sotto-collezione con
-                lettura riservata al medico.
+                L'etichetta dice "non compare nell'app" e non "il genitore non
+                la vedrà", perché la seconda sarebbe falsa: il campo vive su
+                /utenti/{id}, che il genitore può leggere per intero, quindi lo
+                riceve comunque nella risposta di rete. Promettere una
+                riservatezza che non c'è è peggio che non prometterla: qualcuno
+                ci scriverebbe dentro cose che non deve poter leggere. Per una
+                nota davvero riservata servirebbe una sotto-collezione con
+                lettura ristretta al medico.
               */}
-              <p className="text-[11px] text-slate-500">
-                Nota interna: non viene mostrata al genitore, che vede solo
-                &laquo;fase impostata dal medico&raquo;.
+              <p className="text-[11px] leading-relaxed text-slate-500">
+                Nota per il personale medico: non compare nell&apos;app del genitore,
+                ma <strong className="font-semibold text-slate-400">non è un campo
+                riservato</strong> — non usarlo per informazioni che non deve poter
+                leggere.
               </p>
               <textarea
                 id="fase-motivo"

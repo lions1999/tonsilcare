@@ -252,6 +252,35 @@ L'override del medico (`faseOverride`) vince su tutto ed è mostrato come forzat
 Se punta a una fase non più configurata, si ricade sul calcolo automatico invece di non
 mostrare niente.
 
+### Cosa vede il genitore del forzamento, e perché così (2026-08-03)
+
+Solo una pillola ambra: **"Fase impostata dal medico"**, testo fisso. Il riquadro fa
+**attribuzione** — non è il calcolo automatico, l'ha deciso una persona — non identificazione.
+
+- **Il motivo clinico NON gli viene mostrato.** Mostrarlo apriva un secondo canale
+  medico→genitore che nessuno aveva progettato, a dieci pixel dalle prescrizioni, che quel
+  ruolo ce l'hanno per davvero e sono firmate e datate. Il medico finiva a scrivere in stile
+  clinico ("riabilitazione quasi conclusa") in un campo letto da un genitore come messaggio
+  rivolto a lui.
+- **Il motivo resta obbligatorio** anche se non è più rivolto a nessuno: il forzamento
+  scavalca il calcolo e cambia le indicazioni alimentari che la famiglia riceve, quindi è
+  l'unica traccia del perché — per il medico stesso più avanti o per un collega.
+- **⚠️ Il campo non è riservato.** "Interno" vuol dire *non mostrato nell'app*. Vive su
+  `/utenti/{id}`, che il genitore legge per intero: lo riceve comunque nella risposta di rete.
+  L'etichetta nel form lo dice esplicitamente, perché promettere una riservatezza che non
+  esiste è peggio che non prometterla — qualcuno ci scriverebbe dentro cose che il genitore
+  non deve poter leggere. Per una nota davvero riservata servirebbe una sotto-collezione con
+  lettura ristretta al medico. Non fatta.
+
+**Valutato e scartato: mostrare il nome del medico.** Le prescrizioni dicono "Dr. Rossi", il
+forzamento no, ed è un'incoerenza cosmetica voluta. Il genitore **non può** risolvere
+`faseOverrideDa` (un uid): `/accounts/{uid}` ha `allow read` solo per il proprietario, ed è
+giusto così. L'unica via sarebbe denormalizzare `faseOverrideDaNome` come fa `addPrescrizione`
+con `medicoNome`, il che comporta un dato duplicato che diventa stale se il medico cambia
+cognome, più una modifica alla `hasOnly` delle regole e due deploy con relative verifiche su
+progetti appena allineati. Il nome non aggiunge nulla all'attribuzione. **Non è una
+dimenticanza: non riaprirlo senza una ragione nuova.**
+
 ### Le fasi sono ancora definite in DUE posti (erano tre)
 
 1. **`seed-data/fasi.json`** → i documenti `/fasi/{faseId}`. È la fonte che l'app legge.
