@@ -17,6 +17,12 @@ const eslintConfig = defineConfig([
     "public/sw.js",
     "public/workbox-*.js",
     "public/fallback-*.js",
+    // Un git worktree creato dentro .claude/worktrees/ e' una copia completa del
+    // repo, con il suo .next/ e i suoi artefatti di build: senza questa riga
+    // `npx eslint` dalla radice ne segnalava 32.751, di cui 32.750 in quella
+    // copia. Il lint diventa inutilizzabile e il baseline vero (0 errori, 1
+    // warning noto) sparisce nel rumore.
+    ".claude/**",
   ]),
 ]);
 
