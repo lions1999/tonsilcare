@@ -110,6 +110,12 @@ Un quarto residuo, risolto poco dopo (commit `e219ff3`): `firestore.indexes.json
 
 I trigger di alert basati su trend clinici (febbre persistente su più giorni, vomito ripetuto, peggioramento generale delle condizioni) sono **bloccati**, in attesa di soglie cliniche concrete da cliente/nutrizionista (quante ore/giorni per "persistente", quanti episodi per "ripetuto", quali segnali definiscono "peggioramento generale"). Non implementare euristiche arbitrarie nel frattempo: gli alert attuali (`config/alerts`) restano single-reading (temperatura/dolore sopra soglia, sanguinamento/vomito singolo) finché non arrivano numeri reali da usare.
 
+Da non confondere con il bug descritto in "Debiti aperti": *single-reading* è una scelta e
+riguarda **quale logica** si applica (una misura sola invece di un trend); il bug riguarda
+**su quale misura** la si applica — oggi solo l'ultimo log, quindi un valore rientrato
+nasconde quello fuori soglia registrato prima. Il secondo va corretto anche restando
+single-reading.
+
 ## Notifiche push rimosse, sostituite da "novità" in-app (2026-07-17)
 
 Le notifiche push (Firebase Cloud Messaging) sono state rimosse deliberatamente: l'infrastruttura esistente (`PushNotificationManager.tsx`, `firebase-messaging-sw.js`) era comunque quasi interamente mock (nessuna vera integrazione, nessun token mai salvato), e il costo di completarla (permessi browser, service worker, gestione token, supporto iOS PWA ancora incompleto) non era giustificato dal valore. Al suo posto: due flag booleani che pilotano un badge visivo in-app, niente notifiche esterne al dispositivo.
@@ -118,6 +124,58 @@ Le notifiche push (Firebase Cloud Messaging) sono state rimosse deliberatamente:
 - `accounts/{accountId}.haRispostaMedicoNonLetta` — impostato a `true` dal client medico dopo `addPrescrizione`, azzerato dal client genitore **solo al click esplicito sull'avatar** in `src/components/UserMenu.tsx` (apertura del dropdown) — deliberatamente NON al semplice caricamento della dashboard, altrimenti il badge sparirebbe prima ancora che l'utente lo veda.
 
 Sicurezza: `firestore.rules` ha regole `allow update` aggiuntive, ristrette al singolo campo via `request.resource.data.diff(resource.data).affectedKeys().hasOnly([...])`, che permettono al medico di scrivere questi due flag su documenti di cui non è proprietario (il paziente/account del genitore) senza poter toccare nient'altro. Nessuna Cloud Function coinvolta — scelta deliberata per restare coerenti con l'architettura client-diretto già in uso in tutto il progetto (non esiste una cartella `functions/`).
+
+## Control Room: chi scrive dal dettaglio deve aggiornare anche la lista (2026-08-03)
+
+`StudioPazientiContext` carica i pazienti **una volta sola** e sopravvive alla navigazione tra
+un paziente e l'altro — è il motivo per cui esiste il provider. Conseguenza: **una scrittura
+fatta dal pannello di destra non si vede a sinistra**, e le due metà della stessa schermata
+raccontano cose diverse finché qualcuno non ricarica la pagina.
+
+Non è un problema teorico, è successo due volte:
+
+- il flag "novità", risolto con `segnaLetto(utenteId)` — senza, il badge restava acceso
+  accanto al paziente appena aperto;
+- l'override della fase, risolto con `aggiornaPaziente(utenteId, patch)` — **la forma
+  generale**. Senza, un paziente forzato in Fase 2 compariva sotto il filtro "Fase 3" mentre
+  la sua scheda diceva Fase 2, e sotto "Fase 2" dava zero risultati.
+
+**Regola: qualsiasi nuova scrittura fatta dalla scheda paziente va accompagnata da
+`aggiornaPaziente()`.** Nessun errore segnala la dimenticanza — si vede solo confrontando due
+zone della pagina, ed è per questo che è sfuggita la seconda volta pur essendo già documentata
+nell'intestazione di `StudioPazientiContext.tsx`.
+
+## Debiti aperti: due bug e due limiti di scala (2026-08-03)
+
+Emersi confrontando la bozza di specifica col codice. **Vanno trattati con urgenza diversa**:
+i primi due producono comportamento sbagliato oggi, gli altri due funzionano correttamente ora
+e si romperanno al crescere dell'uso.
+
+### Bug — sbagliati adesso, con i dati attuali
+
+- **`oreMaxSenzaAlimentazione` è una soglia che nessun codice legge.** Sta in `/config/alerts`
+  e nei default di `DashboardContent.tsx`, e nessuna logica la usa. È il fallimento silenzioso
+  peggiore che abbiamo: si concorda un valore col medico, lo si scrive in configurazione, e non
+  produce nulla — senza che niente lo segnali. O si implementa, o si toglie dalla config e dal
+  tipo `MedicalAlerts`.
+- **`hasAlert` è calcolato solo sull'ultimo log.** `StudioPazientiContext` legge
+  `getLatestLog(utente.id)` e valuta le soglie su quello. Se il genitore registra 40 °C alle
+  8:00 e 37 °C alle 20:00, per il medico quel paziente **non ha alcun alert**: un allarme
+  risolto cancella quello precedente. Invisibile con chi compila una volta al giorno, evidente
+  col primo genitore diligente.
+
+### Limiti di scala — corretti oggi, rotti domani
+
+- **La Control Room non ha paginazione.** `getAllUtenti()` scarica l'intera collezione e poi
+  esegue **una query per paziente** per l'ultimo log; ricerca e filtri lavorano in memoria su
+  tutto l'elenco. Con 3 pazienti è istantaneo, con 200 sono 201 letture a ogni apertura. Da
+  affrontare prima che i pazienti siano molti, non quando lo sono.
+- **Non esiste associazione medico–paziente.** Nessun campo lega un paziente a un medico:
+  `getAllUtenti()` legge tutto e le regole autorizzano qualunque account con `ruolo: medico`.
+  Con un solo studio non si nota. **Dal secondo medico in poi, ognuno vede tutti i pazienti di
+  tutti** — e va progettato prima che il secondo medico esista, perché tocca modello dati e
+  regole insieme. Nota che la bozza per il cliente parla di "lista dei pazienti *in cura*",
+  quindi la promessa è già stata fatta.
 
 ## Seeding Firestore: `node scripts/seed.mjs` (2026-07-30)
 
