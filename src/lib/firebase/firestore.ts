@@ -21,6 +21,7 @@ import {
   query,
   where,
   serverTimestamp,
+  deleteField,
   orderBy,
   type QuerySnapshot,
   type DocumentData,
@@ -28,6 +29,7 @@ import {
 import { db } from "./config";
 import type {
   UtenteProfile,
+  PostOpPhase,
   PostOpPhaseConfig,
   MedicalAlerts,
   AccountProfile,
@@ -144,12 +146,44 @@ export async function addUtente(
   return docRef.id;
 }
 
-/*
- * I writer dell'override della fase (setFaseOverride / clearFaseOverride)
- * arrivano nel commit successivo, insieme alle regole Firestore che li
- * autorizzano: senza quelle, la scrittura verrebbe rifiutata e sembrerebbe un
- * bug del codice.
+/**
+ * Forza la fase post-operatoria di un paziente, scavalcando il calcolo
+ * automatico. Riservata al medico: le regole rifiutano questi campi sia da un
+ * genitore sia da un medico che provi a firmarli con l'uid di un collega.
+ *
+ * `faseOverrideIl` è una stringa ISO scritta dal client e non un
+ * `serverTimestamp()`, come già fa `addPrescrizione`: serve solo per mostrare
+ * "forzata il ...", e una stringa evita la conversione del Timestamp in
+ * lettura — la stessa che nel diario ha richiesto un caso a parte.
  */
+export async function setFaseOverride(
+  utenteId: string,
+  medicoUid: string,
+  faseOverride: PostOpPhase,
+  motivo: string
+): Promise<void> {
+  await updateDoc(doc(db, "utenti", utenteId), {
+    faseOverride,
+    faseOverrideMotivo: motivo,
+    faseOverrideDa: medicoUid,
+    faseOverrideIl: new Date().toISOString(),
+  });
+}
+
+/**
+ * Rimuove il forzamento e restituisce il paziente al calcolo automatico.
+ * I campi vengono cancellati, non azzerati: la loro ASSENZA è il segnale di
+ * "fase automatica", e un `faseOverride: null` residuo sarebbe uno stato in più
+ * da interpretare in lettura.
+ */
+export async function clearFaseOverride(utenteId: string): Promise<void> {
+  await updateDoc(doc(db, "utenti", utenteId), {
+    faseOverride: deleteField(),
+    faseOverrideMotivo: deleteField(),
+    faseOverrideDa: deleteField(),
+    faseOverrideIl: deleteField(),
+  });
+}
 
 /**
  * Elimina un utente operato.

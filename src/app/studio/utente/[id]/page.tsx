@@ -42,6 +42,7 @@ import {
 } from "@/lib/firebase/firestore";
 import { calcolaEta, calcolaBMI } from "@/lib/utils/paziente";
 import { parseDataLocale } from "@/lib/utils/date";
+import FasePazienteCard from "@/components/studio/FasePazienteCard";
 import { TIPI_INTERVENTO } from "@/lib/validations/utente";
 import type { UtenteProfile, Prescrizione, MedicalAlerts } from "@/types";
 import type { DailyLog } from "@/lib/validations/diary";
@@ -49,7 +50,7 @@ import type { DailyLog } from "@/lib/validations/diary";
 export default function UtenteDettaglioMedico() {
   const { id } = useParams<{ id: string }>();
   const { user, accountProfile } = useAuth();
-  const { segnaLetto } = useStudioPazienti();
+  const { segnaLetto, fasi } = useStudioPazienti();
   
   const [loading, setLoading] = useState(true);
   const [utente, setUtente] = useState<UtenteProfile | null>(null);
@@ -233,6 +234,18 @@ export default function UtenteDettaglioMedico() {
             ) : null}
           </div>
         </section>
+
+        {/* Fase post-operatoria, con l'override clinico */}
+        {user && (
+          <FasePazienteCard
+            utente={utente}
+            fasi={fasi}
+            medicoUid={user.uid}
+            onAggiornato={(patch) =>
+              setUtente((prec) => (prec ? { ...prec, ...patch } : prec))
+            }
+          />
+        )}
 
         {/* Storico Diario Clinico */}
         <section>

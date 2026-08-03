@@ -74,13 +74,37 @@ service cloud.firestore {
       // L'account può aggiornare solo i propri utenti operati, e non può
       // riassegnarli: senza il vincolo su accountId, un genitore poteva
       // spostare un proprio paziente sotto un altro account.
+      //
+      // I campi faseOverride* sono esclusi: forzare la fase post-operatoria è
+      // una decisione clinica del medico. Un genitore che potesse scriverli
+      // rimetterebbe in piedi esattamente il problema che il calcolo automatico
+      // ha risolto — una fase scelta a mano che non si aggiorna più — e da
+      // quella fase dipende il piano alimentare che legge lui stesso.
       allow update: if isAuthenticated() && isUtenteAccount(resource.data)
-        && request.resource.data.accountId == resource.data.accountId;
+        && request.resource.data.accountId == resource.data.accountId
+        && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['faseOverride', 'faseOverrideMotivo', 'faseOverrideDa', 'faseOverrideIl']);
       // Il medico può aggiornare SOLO il flag "nuovo log non letto", per
       // azzerarlo quando apre la scheda di questo paziente.
       allow update: if isAuthenticated() && isMedico()
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['haNuovoLogNonLetto']);
+      // Il medico forza la fase post-operatoria, o toglie il forzamento.
+      //
+      // `faseOverrideDa` deve essere l'uid di chi sta scrivendo: senza questo
+      // vincolo un medico potrebbe attribuire la decisione a un collega, e la
+      // firma mostrata al genitore non varrebbe niente.
+      //
+      // Il secondo ramo copre la rimozione, dove i quattro campi vengono
+      // cancellati e quindi `faseOverrideDa` non esiste nel documento in
+      // arrivo: senza, togliere il forzamento sarebbe impossibile.
+      allow update: if isAuthenticated() && isMedico()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['faseOverride', 'faseOverrideMotivo', 'faseOverrideDa', 'faseOverrideIl'])
+        && (
+          !('faseOverride' in request.resource.data)
+          || request.resource.data.faseOverrideDa == request.auth.uid
+        );
       // La cancellazione richiede che l'account sia il proprietario
       allow delete: if isAuthenticated() && isUtenteAccount(resource.data);
 
