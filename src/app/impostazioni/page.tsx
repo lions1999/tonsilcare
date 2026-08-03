@@ -10,6 +10,7 @@ import { ChevronLeft, LogOut, User, Mail, Users, Settings } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useUtente } from "@/context/UtenteContext";
 import BottoneLogout from "@/components/BottoneLogout";
+import { parseDataLocale } from "@/lib/utils/date";
 
 export default function ImpostazioniPage() {
   const router = useRouter();
@@ -86,7 +87,7 @@ export default function ImpostazioniPage() {
                     <div>
                       <p className="font-semibold text-white">{utente.nome} {utente.cognome}</p>
                       <p className="text-xs text-slate-400">
-                        Operato il {new Date(utente.dataOperazione).toLocaleDateString("it-IT")}
+                        Operato il {parseDataLocale(utente.dataOperazione).toLocaleDateString("it-IT")}
                       </p>
                     </div>
                   </div>

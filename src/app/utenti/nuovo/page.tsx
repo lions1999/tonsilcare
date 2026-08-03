@@ -18,6 +18,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useUtente } from "@/context/UtenteContext";
 import { addUtente } from "@/lib/firebase/firestore";
 import { calcolaBMI } from "@/lib/utils/paziente";
+import { oggiPerInputDate } from "@/lib/utils/date";
 import {
   utenteProfileSchema,
   parseListaTesto,
@@ -206,7 +207,7 @@ function UtenteForm() {
             required
             value={dataNascita}
             onChange={(e) => setDataNascita(e.target.value)}
-            max={new Date().toISOString().split("T")[0]}
+            max={oggiPerInputDate()}
             className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:opacity-50 [color-scheme:dark]"
             disabled={loading}
           />
@@ -224,7 +225,7 @@ function UtenteForm() {
             required
             value={dataOperazione}
             onChange={(e) => setDataOperazione(e.target.value)}
-            max={new Date().toISOString().split("T")[0]}
+            max={oggiPerInputDate()}
             className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:opacity-50 [color-scheme:dark]"
             disabled={loading}
           />

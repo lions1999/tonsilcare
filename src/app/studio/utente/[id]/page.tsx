@@ -41,6 +41,7 @@ import {
   getMedicalAlerts,
 } from "@/lib/firebase/firestore";
 import { calcolaEta, calcolaBMI } from "@/lib/utils/paziente";
+import { parseDataLocale } from "@/lib/utils/date";
 import { TIPI_INTERVENTO } from "@/lib/validations/utente";
 import type { UtenteProfile, Prescrizione, MedicalAlerts } from "@/types";
 import type { DailyLog } from "@/lib/validations/diary";
@@ -164,7 +165,7 @@ export default function UtenteDettaglioMedico() {
               {utente.nome} {utente.cognome}
             </h1>
             <p className="text-xs text-slate-400">
-              Operato il {new Date(utente.dataOperazione).toLocaleDateString("it-IT")}
+              Operato il {parseDataLocale(utente.dataOperazione).toLocaleDateString("it-IT")}
             </p>
           </div>
         </div>

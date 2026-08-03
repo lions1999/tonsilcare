@@ -12,6 +12,7 @@ import Link from "next/link";
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import type { UtenteProfile } from "@/types";
 import type { DailyLog } from "@/lib/validations/diary";
+import { parseDataLocale } from "@/lib/utils/date";
 
 export interface UtenteWithStatus extends UtenteProfile {
   latestLog: DailyLog | null;
@@ -64,7 +65,7 @@ export default function PazienteCard({
               {utente.nome} {utente.cognome}
             </h3>
             <p className="text-xs text-slate-400 mt-0.5 lg:mt-0 lg:text-[11px]">
-              Operato il {new Date(utente.dataOperazione).toLocaleDateString("it-IT")}
+              Operato il {parseDataLocale(utente.dataOperazione).toLocaleDateString("it-IT")}
             </p>
           </div>
         </div>

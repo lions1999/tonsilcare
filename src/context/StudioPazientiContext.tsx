@@ -31,6 +31,7 @@ import {
   getLatestLog,
   getMedicalAlerts,
 } from "@/lib/firebase/firestore";
+import { parseDataLocale } from "@/lib/utils/date";
 import type { UtenteWithStatus } from "@/components/studio/PazienteCard";
 import type { QuickFilterType } from "@/components/studio/SearchAndFilterBar";
 import type { PostOpPhase } from "@/types";
@@ -123,7 +124,7 @@ export function StudioPazientiProvider({ children }: { children: ReactNode }) {
           const recency = (u: UtenteWithStatus) =>
             u.latestLog?.createdAt
               ? new Date(u.latestLog.createdAt).getTime()
-              : new Date(u.dataOperazione).getTime();
+              : parseDataLocale(u.dataOperazione).getTime();
           return recency(b) - recency(a);
         });
 
