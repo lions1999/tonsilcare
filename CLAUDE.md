@@ -303,9 +303,42 @@ I contenuti vivono in `seed-data/*.json`, versionati. Gli id dei documenti sono 
 
 **Perché ora conviene lanciarlo sempre su un ambiente nuovo:** l'assenza di queste collezioni non produce un errore, produce comportamento sbagliato silenzioso.
 - `/fasi` mancante → `useFasi.ts` ha un fallback hardcoded (`FASI_FALLBACK`), l'app funziona comunque. Quel fallback duplica `seed-data/fasi.json`, oggi allineati ma destinati a divergere. Dal 2026-08-03 il fallback almeno **si annuncia**: `console.warn` quando `/fasi` è vuota.
-- `/config/alerts` mancante → **nessun fallback** in `src/app/studio/page.tsx`: `hasAlert` resta sempre `false` per qualsiasi paziente, a prescindere dalla gravità dei parametri. Bug osservato il 2026-07-17 su `tonsilcare-dev` (collezione `config` mai creata).
+- `/config/alerts` mancante → **il sistema di allarme è muto, non degradato.** Vedi sotto.
 
 Prima di investigare una feature data-driven che sembra "rotta" su un ambiente, verificare che la collezione/documento Firestore da cui dipende esista davvero, invece di assumere un bug di codice.
+
+### `/config/alerts` mancante: il lato medico tace, il lato genitore finge (2026-08-04)
+
+**Su `tonsilcare-app` la collezione `/config` è vuota** — verificato per lettura il 2026-08-04,
+zero documenti. In produzione, quindi, tutto ciò che segue non è ipotetico: è lo stato attuale.
+
+`getMedicalAlerts()` restituisce `null`, e da lì le due metà dell'app si comportano in modo
+opposto:
+
+- **Medico — nessun alert, mai, e niente lo dice.** `valutaAlertLog` con `config` a `null`
+  restituisce zero motivi, quindi `hasAlert` è `false` per ogni paziente a prescindere dai
+  valori: nessuna riga rossa in Control Room, filtro "Con allerta" sempre vuoto, nessuna icona
+  sui log nella scheda paziente. Non c'è un errore a schermo né un warning in console. Il
+  medico non vede un sistema degradato, vede un reparto in cui **sta bene tutto**.
+- **Genitore — l'app sembra funzionare.** `DashboardContent` ha `DEFAULT_ALERTS`, quindi il
+  banner continua ad annunciare "Temperatura max: 38.5 °C" col messaggio di emergenza; il
+  modale di emergenza in `diario/nuovo` scatta lo stesso (`?? 38.5` scritto a mano) e
+  `VitalsQuickCard` continua a colorare con 38 e 7.
+
+L'asimmetria è la parte pericolosa: i fallback hardcoded lato genitore — già in lista come bug
+a sé — **nascondono l'assenza della configurazione** proprio sulla schermata dove salterebbe
+all'occhio, mentre la schermata che dovrebbe agire non riceve niente.
+
+Nota storica: fino al 2026-08-04 la scheda paziente degradava invece di tacere, perché aveva i
+suoi `?? 38.5` e `?? 7`. Sono stati tolti di proposito insieme all'unificazione delle
+condizioni di allerta — applicare soglie che nessuno ha configurato è un modo diverso di
+mentire — ma il risultato è che oggi il silenzio lato medico è totale.
+
+**Non è stato implementato alcun avviso**: la scelta è deliberata e va fatta, non improvvisata.
+Le due strade sono annunciare l'assenza (come fa `useFasi` con il suo `console.warn`, che però
+nessun medico legge) oppure dirlo in Control Room, che è UI e riguarda cosa vede il medico.
+Nel frattempo, **la cosa da fare su produzione è popolare `/config/alerts`**, tenendo presente
+che `scripts/seed.mjs` riscrive tutte e quattro le collezioni e non solo quella.
 
 ## L'id del documento vince sempre sul campo salvato (2026-08-03)
 
