@@ -8,6 +8,14 @@ Per questo `package.json` ha `"build": "next build --webpack"`. Non togliere que
 
 Verifica dopo qualsiasi modifica alla toolchain di build: `npm run build` deve produrre `public/sw.js`, `public/workbox-*.js` e `public/fallback-*.js` (tutti gitignored). Se mancano, la PWA è morta anche se il build è verde. Questo è lo stesso pattern di fallimento silenzioso di `/config/alerts` (vedi sezione sul seeding): **niente crash, comportamento sbagliato**.
 
+### `tsc` col dev server acceso può riportare errori che non esistono
+
+`next dev` rigenera `.next/dev/types/validator.ts` mentre gira. Se `npx tsc --noEmit` lo legge a
+metà scrittura, si vedono errori di **sintassi** (`TS1109: Expression expected`) su righe
+troncate a metà parola — in quel file, mai nel sorgente. Non cercarli nel codice: si controlla
+che i percorsi degli errori inizino tutti per `.next/`, si cancella quel file e si rilancia.
+Già costato due cicli.
+
 ## Firestore rules: cosa è chiuso di proposito (2026-07-30)
 
 ### Verificare che le regole pubblicate siano davvero quelle del repo
@@ -274,6 +282,21 @@ speculare di `oreMaxSenzaAlimentazione` (lì una configurazione che nessuno legg
 soglia configurata a 38.5 il genitore vedeva rosso a 38.0 mentre il medico non vedeva niente, e
 alzare la soglia non cambiava quella schermata. Ora passa da `valutaAlertLog` e senza
 configurazione non evidenzia nulla.
+
+**Conseguenza visibile, dichiarata perché sembra un difetto: al primo render i due riquadri
+sono neutri e si colorano un istante dopo.** Le soglie arrivano da Firestore in un `useEffect`,
+quindi il primo passaggio avviene con `configAlert` a `null` — che è lo stesso stato di un
+ambiente non configurato, ed è giusto che si comporti allo stesso modo. Prima non succedeva
+perché i numeri erano scritti nel componente e disponibili subito: la reattività istantanea era
+il sintomo del bug, non una qualità da recuperare. **Non "sistemarlo" reintroducendo un valore
+di partenza**: qualunque default lo farebbe partire da soglie che nessuno ha configurato, cioè
+esattamente ciò che è stato tolto. Se un giorno desse fastidio, la strada è uno stato di
+caricamento esplicito, non un numero di comodo.
+
+La prova della correzione sta su `tonsilcare-dev`: la paziente **Sofia Test** ha due log
+apposta, 38.2 °C e 38.6 °C, che con la soglia a 38.5 stanno uno per parte del confine. Sono
+tenuti lì di proposito — non sono dati sporchi da ripulire, e riscriverli costa più che
+lasciarli.
 
 Attenzione a una distinzione che quella correzione ha reso più netta: `DEFAULT_ALERTS` in
 `DashboardContent.tsx` **è ancora lì e serve solo ad `AlertBanner`**, che senza testo non
