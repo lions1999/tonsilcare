@@ -46,6 +46,7 @@ import { getMedicalAlerts } from "@/lib/firebase/firestore";
 import { useDailyLogs } from "@/hooks/useDailyLogs";
 import type { DailyLog } from "@/lib/validations/diary";
 import { calcolaStatoFase, faseDiStato, type StatoFase } from "@/lib/utils/fase";
+import { valutaAlertLog } from "@/lib/utils/alert";
 import { TIPI_INTERVENTO } from "@/lib/validations/utente";
 import EmptyState from "@/components/EmptyState";
 import UserMenu from "@/components/UserMenu";
@@ -55,7 +56,14 @@ import type { MedicalAlerts, UtenteProfile, PostOpPhaseConfig, Prescrizione } fr
 import { getPrescrizioni } from "@/lib/firebase/firestore";
 
 // ---------------------------------------------------------------------------
-// Default soglie alert (fallback se Firestore non ha /config/alerts)
+// Ripiego del solo banner, se Firestore non ha /config/alerts
+//
+// Serve **soltanto** ad AlertBanner, che senza testo non avrebbe niente da
+// mostrare. NON va passato a ciò che valuta le soglie: l'evidenziazione dei
+// parametri usa la configurazione vera e si spegne quando manca. Questo ripiego
+// resta un debito noto — su un ambiente non configurato il banner annuncia 38.5
+// e il messaggio di emergenza come se qualcuno li avesse decisi, mentre il lato
+// medico tace del tutto (vedi CLAUDE.md).
 // ---------------------------------------------------------------------------
 
 const DEFAULT_ALERTS: MedicalAlerts = {
@@ -300,8 +308,34 @@ function MealPlanCard({ phase }: { phase: PostOpPhaseConfig }) {
   );
 }
 
-/** Card parametri vitali (dati reali dal diario clinico) */
-function VitalsQuickCard({ log }: { log: DailyLog | null }) {
+/**
+ * Card parametri vitali (dati reali dal diario clinico).
+ *
+ * L'evidenziazione passa da `valutaAlertLog`, la stessa funzione che decide le
+ * righe rosse della Control Room e le icone sui log della scheda paziente. Qui
+ * c'erano `38` e `7` scritti a mano: con la soglia configurata a 38.5, un
+ * genitore vedeva rosso a 38.0 mentre il medico non vedeva niente, e alzare la
+ * soglia in /config/alerts non cambiava questa schermata. Era una
+ * configurazione che mente — stessa famiglia di `oreMaxSenzaAlimentazione`, in
+ * forma speculare.
+ *
+ * Senza `/config/alerts` non si evidenzia nulla, come per la scheda paziente:
+ * applicare soglie che nessuno ha configurato è un modo diverso di mentire. Ne
+ * segue che al primo render, prima che le soglie arrivino, i riquadri sono
+ * neutri e si colorano subito dopo — preferibile a colorarli con numeri
+ * inventati.
+ *
+ * `valutaAlertLog` valuta anche sanguinamento e vomito: qui restano inutilizzati
+ * perché la card mostra solo temperatura e dolore, ma passare dalla definizione
+ * condivisa è ciò che impedisce a queste due di divergere di nuovo.
+ */
+function VitalsQuickCard({
+  log,
+  config,
+}: {
+  log: DailyLog | null;
+  config: MedicalAlerts | null;
+}) {
   if (!log) {
     return (
       <article
@@ -329,6 +363,10 @@ function VitalsQuickCard({ log }: { log: DailyLog | null }) {
   const timeString = logDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
   const dateString = isToday ? `Oggi, ${timeString}` : `${logDate.toLocaleDateString("it-IT")}, ${timeString}`;
 
+  const motivi = valutaAlertLog(log, config);
+  const temperaturaFuoriSoglia = motivi.some((m) => m.tipo === "temperatura");
+  const doloreFuoriSoglia = motivi.some((m) => m.tipo === "dolore");
+
   return (
     <article
       aria-label="Parametri vitali recenti"
@@ -342,13 +380,13 @@ function VitalsQuickCard({ log }: { log: DailyLog | null }) {
         <span className="text-[10px] text-slate-500">{dateString}</span>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div className={`flex flex-col items-center justify-center rounded-xl border border-slate-700/40 p-3 ${log.temperatura >= 38 ? 'bg-red-900/40 border-red-500/50' : 'bg-slate-900/60'}`}>
-          <Thermometer size={20} className={`mb-1 ${log.temperatura >= 38 ? 'text-red-400' : 'text-orange-400'}`} />
+        <div className={`flex flex-col items-center justify-center rounded-xl border border-slate-700/40 p-3 ${temperaturaFuoriSoglia ? 'bg-red-900/40 border-red-500/50' : 'bg-slate-900/60'}`}>
+          <Thermometer size={20} className={`mb-1 ${temperaturaFuoriSoglia ? 'text-red-400' : 'text-orange-400'}`} />
           <span className="text-2xl font-black text-white">{log.temperatura.toFixed(1)}</span>
           <span className="text-[10px] font-medium text-slate-400">°C Temp.</span>
         </div>
-        <div className={`flex flex-col items-center justify-center rounded-xl border border-slate-700/40 p-3 ${log.dolore >= 7 ? 'bg-amber-900/40 border-amber-500/50' : 'bg-slate-900/60'}`}>
-          <Activity size={20} className={`mb-1 ${log.dolore >= 7 ? 'text-amber-400' : 'text-violet-400'}`} />
+        <div className={`flex flex-col items-center justify-center rounded-xl border border-slate-700/40 p-3 ${doloreFuoriSoglia ? 'bg-amber-900/40 border-amber-500/50' : 'bg-slate-900/60'}`}>
+          <Activity size={20} className={`mb-1 ${doloreFuoriSoglia ? 'text-amber-400' : 'text-violet-400'}`} />
           <span className="text-2xl font-black text-white">
             {log.dolore}
             <span className="text-base font-semibold text-slate-400">/10</span>
@@ -428,17 +466,26 @@ export default function DashboardContent() {
   // Gli intervalli delle fasi; la fase del paziente si deriva da questi.
   const { fasi, loading: fasiLoading } = useFasi();
 
-  // Carica alert medici da Firestore
-  const [alerts, setAlerts] = useState<MedicalAlerts>(DEFAULT_ALERTS);
+  /*
+    Le soglie come sono davvero: `null` finché non arrivano, e `null` per sempre
+    se /config/alerts non esiste.
+
+    Tenere questo stato distinto da ciò che riceve il banner non è pignoleria:
+    il banner ha un ripiego hardcoded (DEFAULT_ALERTS) e continua ad annunciare
+    38.5 anche in un ambiente non configurato, mentre l'evidenziazione dei
+    parametri deve spegnersi. Passare `alerts` a VitalsQuickCard rimetterebbe un
+    fallback hardcoded, solo spostato di venti righe.
+  */
+  const [configAlert, setConfigAlert] = useState<MedicalAlerts | null>(null);
   const [prescrizioni, setPrescrizioni] = useState<Prescrizione[]>([]);
 
   useEffect(() => {
     getMedicalAlerts()
       .then((data) => {
-        if (data) setAlerts(data);
+        if (data) setConfigAlert(data);
       })
       .catch(() => {
-        // Usa il fallback silenziosamente
+        // Nessuna soglia: i riquadri restano neutri, il banner usa il ripiego.
       });
   }, []);
 
@@ -575,13 +622,13 @@ export default function DashboardContent() {
 
         {/* Banner Alert Medico */}
         <div className="lg:col-span-2">
-          <AlertBanner alerts={alerts} />
+          <AlertBanner alerts={configAlert ?? DEFAULT_ALERTS} />
         </div>
 
         {/* Colonna sinistra: stato clinico del bambino */}
         <div className="space-y-4">
           <UtenteStatusCard utente={activeUtente} stato={stato} />
-          <VitalsQuickCard log={latestLog} />
+          <VitalsQuickCard log={latestLog} config={configAlert} />
         </div>
 
         {/* Colonna destra: comunicazioni e indicazioni */}

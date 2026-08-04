@@ -223,9 +223,14 @@ schermata. Va progettata, non aggiunta.
 Erano scritte a mano in quattro punti, con quattro definizioni **divergenti**: la Control Room
 guardava sanguinamento/vomito/temperatura/dolore, la scheda paziente ometteva il dolore, il
 form del diario guardava solo temperatura e sanguinamento, la dashboard del genitore aveva 38
-e 7 hardcoded. Ora Control Room e scheda paziente usano `valutaAlertFinestra` /
-`valutaAlertLog`; **i due punti lato genitore no** — sono nella lista dei bug aperti, perché
-allinearli cambia cosa vede la famiglia.
+e 7 hardcoded. Ora **tre punti su quattro** passano da qui: Control Room e scheda paziente con
+`valutaAlertFinestra` / `valutaAlertLog`, e dal 2026-08-05 anche `VitalsQuickCard` sulla
+dashboard del genitore.
+
+Resta fuori **il modale di emergenza in `diario/nuovo`**, che scatta su temperatura o
+sanguinamento ma non su vomito e dolore. Non è una dimenticanza: allinearlo cambia **quando una
+famiglia riceve un allarme**, quindi è una decisione clinica da porre al cliente insieme alle
+soglie sui trend, non un riordino tecnico. Vedi i debiti aperti.
 
 Due conseguenze visibili al medico, dichiarate perché altrimenti sembrano malfunzionamenti:
 
@@ -244,25 +249,37 @@ Due conseguenze visibili al medico, dichiarate perché altrimenti sembrano malfu
    non viene evidenziato niente, coerentemente con la Control Room, invece di applicare soglie
    che nessuno ha configurato.
 
-## Debiti aperti: un bug e due limiti di scala (2026-08-03, aggiornato 2026-08-04)
+## Debiti aperti: un bug e due limiti di scala (2026-08-03, aggiornato 2026-08-05)
 
 Emersi confrontando la bozza di specifica col codice. **Vanno trattati con urgenza diversa**:
 il primo produce comportamento sbagliato oggi, gli altri due funzionano correttamente ora e si
 romperanno al crescere dell'uso. I due bug del 2026-08-03 sono stati corretti (vedi la sezione
-sulla finestra di 24 ore); al loro posto ne è emerso un terzo, della stessa famiglia del primo.
+sulla finestra di 24 ore); il terzo, `VitalsQuickCard`, il 2026-08-05. Quello che resta non è
+in attesa di tempo ma **di una decisione clinica del cliente**.
 
 ### Bug — sbagliato adesso, con i dati attuali
 
-- **`VitalsQuickCard` colora i parametri del genitore con soglie scritte a mano.** In
-  `DashboardContent.tsx` i due riquadri "Temp." e "Dolore" confrontano con `38` e `7`
-  letterali, ignorando `/config/alerts` che la stessa pagina ha già caricato per il banner. È
-  la stessa famiglia di `oreMaxSenzaAlimentazione`, in forma speculare: lì una configurazione
-  che nessuno leggeva, qui **una configurazione che mente**. Se il medico alza la soglia a 39,
-  il genitore continua a vedere il riquadro rosso a 38 e nessuno se ne accorge — e già oggi il
-  valore configurato è 38.5, quindi le due schermate dissentono. Non corretto insieme agli
-  altri due perché cambia cosa vede il genitore: va deciso, non fatto di passaggio. Stesso
-  discorso per il modale di emergenza in `diario/nuovo/page.tsx`, che scatta su temperatura o
-  sanguinamento ma **non** su vomito e dolore, che invece accendono l'allerta del medico.
+- **Il modale di emergenza in `diario/nuovo/page.tsx` scatta su temperatura o sanguinamento,
+  ma non su vomito e dolore**, che invece accendono l'allerta del medico. È l'ultimo dei
+  quattro punti che non passa da `lib/utils/alert.ts`, e **va lasciato lì finché il cliente non
+  decide**: allinearlo non è un riordino tecnico, cambia in quali casi una famiglia riceve un
+  allarme a schermo. Va posto insieme alle soglie sui trend e alla domanda per il nutrizionista,
+  non risolto di passaggio. Nota che scatta anche con `?? 38.5` scritto a mano, quindi in un
+  ambiente senza `/config/alerts` allarma con una soglia che nessuno ha configurato.
+
+**Corretto il 2026-08-05: `VitalsQuickCard`.** I due riquadri "Temp." e "Dolore" della
+dashboard genitore confrontavano con `38` e `7` letterali, ignorando `/config/alerts` che la
+stessa pagina aveva già caricato per il banner: **una configurazione che mente**, la forma
+speculare di `oreMaxSenzaAlimentazione` (lì una configurazione che nessuno leggeva). Con la
+soglia configurata a 38.5 il genitore vedeva rosso a 38.0 mentre il medico non vedeva niente, e
+alzare la soglia non cambiava quella schermata. Ora passa da `valutaAlertLog` e senza
+configurazione non evidenzia nulla.
+
+Attenzione a una distinzione che quella correzione ha reso più netta: `DEFAULT_ALERTS` in
+`DashboardContent.tsx` **è ancora lì e serve solo ad `AlertBanner`**, che senza testo non
+avrebbe niente da mostrare. Non va passato a ciò che valuta le soglie, altrimenti il fallback
+hardcoded torna, solo spostato. È il motivo per cui la configurazione vera vive in uno stato
+separato (`configAlert`, che può essere `null`) e il banner riceve `configAlert ?? DEFAULT_ALERTS`.
 
 ### Limiti di scala — corretti oggi, rotti domani
 

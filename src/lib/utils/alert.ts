@@ -8,6 +8,12 @@
  * sanguinamento, e la dashboard del genitore aveva 38 e 7 hardcoded al posto
  * delle soglie configurate. Divergevano senza che niente lo segnalasse.
  *
+ * Tre dei quattro punti ora passano da qui. Resta fuori il **modale di emergenza
+ * in `diario/nuovo`**, che scatta su temperatura e sanguinamento ma non su
+ * vomito e dolore: allinearlo cambierebbe quando una famiglia riceve un allarme,
+ * quindi è una decisione clinica da porre al cliente insieme alle soglie sui
+ * trend, non un riordino tecnico. Resta nella lista dei debiti aperti.
+ *
  * QUESTA RESTA UNA VALUTAZIONE *SINGLE-READING*: una singola misura fuori
  * soglia accende l'allerta. Non è il lavoro sui trend clinici (febbre
  * persistente, vomito ripetuto, peggioramento generale), che resta bloccato in
