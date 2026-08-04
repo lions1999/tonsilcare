@@ -334,11 +334,42 @@ suoi `?? 38.5` e `?? 7`. Sono stati tolti di proposito insieme all'unificazione 
 condizioni di allerta — applicare soglie che nessuno ha configurato è un modo diverso di
 mentire — ma il risultato è che oggi il silenzio lato medico è totale.
 
-**Non è stato implementato alcun avviso**: la scelta è deliberata e va fatta, non improvvisata.
-Le due strade sono annunciare l'assenza (come fa `useFasi` con il suo `console.warn`, che però
-nessun medico legge) oppure dirlo in Control Room, che è UI e riguarda cosa vede il medico.
-Nel frattempo, **la cosa da fare su produzione è popolare `/config/alerts`**, tenendo presente
-che `scripts/seed.mjs` riscrive tutte e quattro le collezioni e non solo quella.
+### Deciso, da fare: un avviso in Control Room quando `/config/alerts` manca
+
+**Scelta fatta il 2026-08-04, non ancora implementata.** Scartato il `console.warn` alla
+`useFasi`: nessun medico apre la console, e qui il fallimento non è un degrado ma un silenzio
+totale su un sistema di allarme clinico. L'avviso va **nell'interfaccia**, in cima alla lista
+della Control Room.
+
+Requisiti, perché non venga implementato come un banner qualunque:
+
+- **Non chiudibile.** Un avviso che dice "gli allarmi sono spenti" e che si può far sparire
+  con una X viene chiuso una volta e non rivisto più, proprio mentre la condizione persiste.
+- **Deve smentire l'inferenza sbagliata, non solo segnalare un errore tecnico.** Il rischio
+  non è che il medico non sappia di una configurazione mancante: è che legga una lista senza
+  righe rosse e concluda che stanno tutti bene.
+- Formulazione proposta, da rivedere col medico ma non da annacquare:
+
+  > **Soglie di allerta non configurate — il triage è disattivato.**
+  > Nessun paziente può risultare in allerta finché manca la configurazione clinica.
+  > L'assenza di segnalazioni in questa lista **non** significa che i parametri siano nella
+  > norma: apri le singole schede e avvisa chi gestisce l'ambiente.
+
+- **Solo lato medico.** Le schermate del genitore hanno i loro fallback hardcoded e continuano
+  a mostrare numeri: sono già in lista come bug a sé, e vanno affrontate lì, non con un avviso
+  che al genitore direbbe qualcosa che non può risolvere.
+- Nota implementativa: oggi il `null` di `getMedicalAlerts()` viene inghiottito dentro
+  `StudioPazientiContext`, che lo traduce silenziosamente in "nessun motivo di allerta". Serve
+  esporlo come stato (`configMancante`) perché la lista possa mostrarne qualcosa.
+
+**Su produzione la cosa da fare resta popolare `/config/alerts`**, tenendo presente che
+`scripts/seed.mjs` riscrive tutte e quattro le collezioni e non solo quella. Al 2026-08-04
+questo non è un rischio: `/ricette`, `/info`, `/fasi`, `/config`, **e anche `/utenti` e
+`/accounts`** sono tutte vuote su `tonsilcare-app` — verificato per lettura. Non c'è niente da
+sovrascrivere perché la produzione non è mai stata usata. (Gli utenti di Firebase Auth non
+sono stati enumerati: le ADC locali richiedono un quota project. `/accounts` viene però scritto
+alla registrazione, quindi zero documenti lì è un indizio forte che nessuno si sia mai
+registrato.)
 
 ## L'id del documento vince sempre sul campo salvato (2026-08-03)
 
