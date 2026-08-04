@@ -42,6 +42,7 @@ import {
 } from "@/lib/firebase/firestore";
 import { calcolaEta, calcolaBMI } from "@/lib/utils/paziente";
 import { parseDataLocale } from "@/lib/utils/date";
+import { valutaAlertLog } from "@/lib/utils/alert";
 import FasePazienteCard from "@/components/studio/FasePazienteCard";
 import { TIPI_INTERVENTO } from "@/lib/validations/utente";
 import type { UtenteProfile, Prescrizione, MedicalAlerts } from "@/types";
@@ -265,13 +266,28 @@ export default function UtenteDettaglioMedico() {
             </div>
           ) : (
             <div className="space-y-3">
-              {logs.map((log) => (
+              {logs.map((log) => {
+                // Le soglie non si rivalutano a mano: è la stessa funzione che
+                // usa la Control Room, su un log solo. Prima qui c'erano tre
+                // confronti scritti a mano con fallback hardcoded (38.5 e 7) e
+                // una definizione di allerta diversa da quella della lista —
+                // l'icona ignorava il dolore.
+                //
+                // Conseguenza voluta della rimozione dei fallback: senza
+                // /config/alerts non viene evidenziato niente, esattamente come
+                // in Control Room, invece di applicare soglie che nessuno ha
+                // configurato.
+                const motivi = valutaAlertLog(log, alertsConfig);
+                const fuoriSoglia = (tipo: "temperatura" | "dolore") =>
+                  motivi.some((m) => m.tipo === tipo);
+
+                return (
                 <div key={log.id} className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
                   <div className="flex items-center justify-between border-b border-slate-800/50 pb-2 mb-2">
                     <span className="text-xs text-slate-400">
                       {new Date(log.createdAt!).toLocaleDateString("it-IT", { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </span>
-                    {(log.sanguinamento || log.vomito || (log.temperatura && log.temperatura >= (alertsConfig?.temperaturaMaxC ?? 38.5))) && (
+                    {motivi.length > 0 && (
                       <span className="text-red-400">
                         <AlertCircle size={14} />
                       </span>
@@ -281,7 +297,7 @@ export default function UtenteDettaglioMedico() {
                     {log.temperatura && (
                       <div className="flex items-center gap-1.5">
                         <Thermometer size={14} className="text-slate-500" />
-                        <span className={log.temperatura >= (alertsConfig?.temperaturaMaxC ?? 38.5) ? "text-red-400 font-medium" : ""}>
+                        <span className={fuoriSoglia("temperatura") ? "text-red-400 font-medium" : ""}>
                           {log.temperatura}°C
                         </span>
                       </div>
@@ -289,7 +305,7 @@ export default function UtenteDettaglioMedico() {
                     {log.dolore !== undefined && (
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-500 text-xs">Dolore:</span>
-                        <span className={log.dolore >= (alertsConfig?.doloreSoglia ?? 7) ? "text-orange-400 font-medium" : ""}>
+                        <span className={fuoriSoglia("dolore") ? "text-orange-400 font-medium" : ""}>
                           {log.dolore}/10
                         </span>
                       </div>
@@ -356,7 +372,8 @@ export default function UtenteDettaglioMedico() {
                     {log.note && <p className="text-slate-400 mt-2 bg-slate-950/50 p-2 rounded-lg italic">&quot;{log.note}&quot;</p>}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

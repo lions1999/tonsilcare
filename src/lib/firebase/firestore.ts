@@ -329,6 +329,68 @@ export async function getLatestLog(utenteId: string): Promise<DailyLog | null> {
   return { ...data, id: d.id, createdAt: createdAtStr } as DailyLog;
 }
 
+/**
+ * Recupera i log delle ultime `ore` ore, dal più recente, insieme all'ultimo
+ * log in assoluto.
+ *
+ * Serve alla Control Room, che prima leggeva un solo log per paziente
+ * (`getLatestLog`) e valutava le soglie su quello: una misura rientrata
+ * cancellava quella fuori soglia registrata poche ore prima. Restituisce anche
+ * `latestLog` perché la card mostra comunque l'ultimo rilevamento, che dentro
+ * la finestra può non essere quello che ha acceso l'allerta.
+ *
+ * Costo: **una query per paziente, come prima**. Se la finestra non è vuota, il
+ * suo primo elemento è anche l'ultimo log in assoluto, quindi la seconda query
+ * parte solo per i pazienti che non registrano da più di `ore` ore.
+ *
+ * ⚠️ Quell'ottimizzazione poggia su un'assunzione che questo file altrove NON
+ * garantisce: che ogni log abbia `createdAt`. Un documento con quel campo
+ * assente (scrittura interrotta) è invisibile al filtro di disuguaglianza, e se
+ * fosse proprio lui il più recente `latestLog` sarebbe sbagliato — mentre
+ * `getUtenteLogs`, che il campo mancante lo tollera fabbricando `now`, lo
+ * mostrerebbe comunque nello storico. Due comportamenti divergenti sullo stesso
+ * dato. Non corretto qui: sistemarlo vuol dire decidere cosa significa un log
+ * senza istante, non aggiungere un ramo.
+ *
+ * `where` e `orderBy` insistono sullo stesso campo, quindi basta l'indice a
+ * campo singolo automatico: `firestore.indexes.json` resta vuoto.
+ */
+export async function getLogsFinestraAlert(
+  utenteId: string,
+  ore: number
+): Promise<{ logs: DailyLog[]; latestLog: DailyLog | null }> {
+  const inizioFinestra = new Date(Date.now() - ore * 60 * 60 * 1000);
+
+  const snap = await getDocs(
+    query(
+      collection(db, "utenti", utenteId, "diario"),
+      where("createdAt", ">=", inizioFinestra),
+      orderBy("createdAt", "desc")
+    )
+  );
+
+  const logs = snap.docs.map((d) => {
+    const data = d.data();
+    // Stesso ordine di getUtenteLogs e per le stesse due ragioni opposte: `id`
+    // dopo lo spread perché nessun campo salvato possa vincere sull'id vero,
+    // `createdAt` dopo perché lì l'override (Timestamp → stringa ISO) è voluto.
+    // Qui il campo c'è per costruzione: senza, il documento non sarebbe passato
+    // dal filtro di disuguaglianza.
+    return {
+      ...data,
+      id: d.id,
+      createdAt: data.createdAt.toDate().toISOString(),
+    } as DailyLog;
+  });
+
+  if (logs.length > 0) return { logs, latestLog: logs[0] };
+
+  // Finestra vuota: il paziente non registra da un pezzo, ma la card mostra
+  // comunque l'ultimo rilevamento e l'ordinamento della lista lo usa come
+  // criterio di recency.
+  return { logs, latestLog: await getLatestLog(utenteId) };
+}
+
 // ---------------------------------------------------------------------------
 // Prescrizioni Mediche
 // ---------------------------------------------------------------------------

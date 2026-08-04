@@ -13,9 +13,15 @@ import { AlertTriangle, ChevronRight } from "lucide-react";
 import type { UtenteProfile } from "@/types";
 import type { DailyLog } from "@/lib/validations/diary";
 import { parseDataLocale } from "@/lib/utils/date";
+import { descriviMotivo, type MotivoAlert } from "@/lib/utils/alert";
+
+/** Quanti motivi si scrivono per esteso prima di passare a "+N". */
+const MOTIVI_MOSTRATI = 2;
 
 export interface UtenteWithStatus extends UtenteProfile {
   latestLog: DailyLog | null;
+  /** Cosa ha acceso l'allerta, per gravità. Vuoto = nessuna allerta. */
+  motiviAlert: MotivoAlert[];
   hasAlert: boolean;
 }
 
@@ -105,6 +111,31 @@ export default function PazienteCard({
               <span className="text-red-400">Sintomi critici</span>
             )}
           </div>
+
+          {/*
+            Il motivo dell'allerta va scritto qui, accanto ai valori, perché da
+            quando le soglie si valutano sulle ultime 24 ore la lettura che ha
+            acceso il rosso spesso NON è quella mostrata sopra: senza, il medico
+            legge "Temp: 37.0°C" dentro un riquadro rosso e non ha modo di
+            capire perché.
+
+            Si mostrano tutti i motivi, non solo il più grave: con febbre alta
+            al mattino e dolore 9/10 nel pomeriggio, tenere solo il primo
+            nasconderebbe il secondo. Oltre i due si passa a "+N" per non far
+            crescere la riga, che su desktop è compatta.
+          */}
+          {utente.motiviAlert.length > 0 && (
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-red-900/30 pt-1.5 font-medium text-red-300 lg:mt-1 lg:pt-1">
+              {utente.motiviAlert.slice(0, MOTIVI_MOSTRATI).map((motivo) => (
+                <span key={motivo.tipo}>{descriviMotivo(motivo)}</span>
+              ))}
+              {utente.motiviAlert.length > MOTIVI_MOSTRATI && (
+                <span className="text-red-400/70">
+                  +{utente.motiviAlert.length - MOTIVI_MOSTRATI}
+                </span>
+              )}
+            </p>
+          )}
         </div>
       )}
     </Link>

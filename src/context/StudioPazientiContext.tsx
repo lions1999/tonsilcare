@@ -28,10 +28,14 @@ import {
 } from "react";
 import {
   getAllUtenti,
-  getLatestLog,
+  getLogsFinestraAlert,
   getMedicalAlerts,
 } from "@/lib/firebase/firestore";
 import { parseDataLocale } from "@/lib/utils/date";
+import {
+  ORE_FINESTRA_ALERT,
+  valutaAlertFinestra,
+} from "@/lib/utils/alert";
 import { calcolaStatoFase, faseDiStato } from "@/lib/utils/fase";
 import { useFasi } from "@/hooks/useFasi";
 import type { UtenteWithStatus } from "@/components/studio/PazienteCard";
@@ -116,23 +120,24 @@ export function StudioPazientiProvider({ children }: { children: ReactNode }) {
 
         const conStato = await Promise.all(
           allUtenti.map(async (utente) => {
-            const latestLog = await getLatestLog(utente.id);
+            // Triage: le soglie si valutano su TUTTE le letture delle ultime 24
+            // ore, non sul solo ultimo log. Prima una misura rientrata
+            // cancellava quella fuori soglia registrata poche ore prima — 40 °C
+            // alle 8:00 e 37 °C alle 20:00 davano un paziente senza alert.
+            // Resta una valutazione single-reading: cambia su quali letture si
+            // applica, non quale logica si applica.
+            const { logs, latestLog } = await getLogsFinestraAlert(
+              utente.id,
+              ORE_FINESTRA_ALERT
+            );
+            const motiviAlert = valutaAlertFinestra(logs, alertsConfig);
 
-            // Logica Triage (Alert) — invariata
-            let hasAlert = false;
-            if (latestLog && alertsConfig) {
-              const { temperatura, dolore, sanguinamento, vomito } = latestLog;
-              if (
-                sanguinamento ||
-                vomito ||
-                (temperatura && temperatura >= alertsConfig.temperaturaMaxC) ||
-                (dolore && dolore >= alertsConfig.doloreSoglia)
-              ) {
-                hasAlert = true;
-              }
-            }
-
-            return { ...utente, latestLog, hasAlert };
+            return {
+              ...utente,
+              latestLog,
+              motiviAlert,
+              hasAlert: motiviAlert.length > 0,
+            };
           })
         );
 
