@@ -79,7 +79,17 @@ firebase deploy --only firestore
 
 Su un progetto Firebase nuovo il database è vuoto, e **l'app non se ne accorge in modo uniforme**: alcune funzionalità hanno un fallback, altre falliscono in silenzio. In particolare, senza il documento `/config/alerts` la Control Room non evidenzia **mai** un paziente in allerta, per quanto gravi siano i parametri — senza alcun errore a schermo.
 
-**Da creare a mano da Firebase Console** (la scrittura è bloccata al client, `allow write: if false` in `firestore.rules`):
+Tutte e quattro le collezioni si popolano con un comando solo. La scrittura è bloccata al client (`allow write: if false` in `firestore.rules`), quindi il seeding passa dall'Admin SDK, che le regole non le attraversa:
+
+```bash
+gcloud auth application-default login    # una volta
+node scripts/seed.mjs --dry-run          # mostra cosa scriverebbe
+node scripts/seed.mjs                    # tonsilcare-dev (default)
+```
+
+I contenuti stanno in `seed-data/*.json`, versionati, e gli id dei documenti sono deterministici: rieseguire lo script aggiorna invece di duplicare. Su produzione serve il flag esplicito `--project tonsilcare-app --conferma-produzione`.
+
+Cosa viene creato:
 
 - **`/config/alerts`** — soglie cliniche. Campi e valori di partenza:
   | Campo | Tipo | Valore |
@@ -87,9 +97,8 @@ Su un progetto Firebase nuovo il database è vuoto, e **l'app non se ne accorge 
   | `temperaturaMaxC` | number | `38.5` |
   | `doloreSoglia` | number | `7` |
   | `messaggioEmergenza` | string | testo da mostrare al genitore in caso di allerta |
-- **`/fasi/{fase_1 … fase_5}`** — configurazione delle fasi post-operatorie. Se la collezione manca l'app resta usabile grazie al fallback hardcoded in `src/hooks/usePhaseConfig.ts` (`FALLBACK_PHASES`), che puoi usare come traccia per i documenti reali.
-
-**Da popolare dall'app** (una tantum): apri `/ricette` e `/info` da loggato — se la collezione è vuota la pagina mostra un pulsante *"Popola Database (Seed)"* che crea i contenuti iniziali.
+- **`/fasi/{fase_1 … fase_5}`** — configurazione delle fasi post-operatorie. Se la collezione manca l'app resta usabile grazie al fallback hardcoded in `src/hooks/useFasi.ts` (`FASI_FALLBACK`), che lo annuncia in console quando scatta.
+- **`/ricette`** e **`/info`** — contenuti clinici. Prima si popolavano da un pulsante *"Popola Database (Seed)"* nelle pagine omonime: usava `addDoc` senza guardia, quindi ogni click aggiungeva copie. Pulsante e funzioni sono stati rimossi.
 
 ### 6. Avvia il server di sviluppo
 

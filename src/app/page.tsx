@@ -9,7 +9,7 @@
  * - Nessun dato hardcodato o mock
  * - I dati provengono da:
  *   → UtenteContext (utente attivo da Firestore)
- *   → usePhaseConfig (config fase da Firestore + fallback)
+ *   → useFasi (intervalli delle fasi da Firestore + fallback)
  *   → getMedicalAlerts (soglie da Firestore + fallback)
  */
 
