@@ -483,6 +483,24 @@ al primo antenato **posizionato**, che non è toccato dal blocco contenitore —
 in `SearchAndFilterBar` serviva lì perché il menu veniva *ritagliato* da un `overflow`, che qui
 non succede.
 
+### `/impostazioni` per il genitore esiste solo dentro `UserMenu`
+
+**Il genitore non ha `/impostazioni` tra le sue voci di navigazione** — né in `NAV_ITEMS_GENITORE`
+né, di conseguenza, nella bottom nav o nella barra. L'unico ingresso a quella pagina è la voce
+"Profilo & Impostazioni" nel dropdown di `UserMenu`. E poiché `/impostazioni` contiene a sua
+volta un "Esci dall'Account", quel dropdown è **sia l'unica porta verso le impostazioni sia
+l'unica uscita dall'app su mobile** (il medico no: ha Impostazioni come voce di barra).
+
+È una dipendenza che **non si vede leggendo i componenti**: `UserMenu` sembra un menu account
+qualunque, e niente nel codice dice che due funzioni dell'app dipendono dal fatto che sia
+montato. Chi lo nasconde, lo condiziona, o lo sposta dietro un breakpoint sta togliendo delle
+strade, non spostando un controllo. È il motivo per cui nella dashboard è `lg:hidden` invece
+che rimosso.
+
+Le vie d'uscita, per intero: barra desktop (entrambi i ruoli, ogni pagina), header della
+dashboard sotto `lg` (solo genitore), pagina `/impostazioni`, schermata "profilo non
+disponibile". Tutte passano da `BottoneLogout`.
+
 ## `backdrop-blur` sull'header rompe i figli `position: fixed` (2026-08-03)
 
 Gli header di questo progetto usano `backdrop-blur-xl`. `backdrop-filter` (come `transform`,
@@ -499,6 +517,33 @@ Cosa è costato finora, in `SearchAndFilterBar.tsx`:
   della pagina: cliccare altrove non chiudeva niente. Era rotto da sempre, per la stessa
   ragione, e nessuno se n'era accorto perché il menu era già inutilizzabile per un altro
   motivo (vedi sotto).
+
+### Regola: niente overlay `fixed inset-0` per chiudere un dropdown
+
+**Questo pattern ha già fallito due volte, sempre allo stesso modo, e in entrambi i casi era
+rotto dal primo giorno senza che nessuno se ne accorgesse:**
+
+| dove | overlay misurato | doveva essere | scoperto |
+|---|---|---|---|
+| `SearchAndFilterBar` (filtro "Fase") | solo l'header | il viewport | 2026-08-03 |
+| `UserMenu` (menu account) | 390×**125** | 390×844 | 2026-08-05 |
+
+Due volte non è sfortuna, è il pattern sbagliato per questo progetto: **ogni header qui ha
+`backdrop-blur`**, quindi qualunque `fixed` che ci nasca dentro si ancora all'header. E il
+fallimento è silenzioso nel modo peggiore — il menu si apre, si usa, si chiude dal bottone:
+manca solo il click fuori, che nessuno verifica di proposito. In `UserMenu` è sopravvissuto
+per mesi in produzione.
+
+**Quindi: la chiusura al click fuori si fa con un listener `pointerdown` su `document` che
+controlla `ref.contains(e.target)`**, come in `src/components/UserMenu.tsx`. Non dipende dal
+contesto di impilamento, non ha z-index da bilanciare, e funziona ovunque il componente venga
+spostato. Da preferire anche fuori dagli header: il prossimo dropdown potrebbe finirci dentro
+per un refactor, e allora si romperebbe senza che nessuno tocchi quel file.
+
+Il menu **in sé** può restare `absolute`: si ancora al primo antenato *posizionato*, che il
+blocco contenitore non tocca. Il portale di `SearchAndFilterBar` risolve un problema diverso —
+lì il menu veniva **ritagliato** da un `overflow` — e non va copiato dove quel problema non
+c'è.
 
 **Qualunque dropdown, tooltip, popover o overlay che nasca dentro un header con
 `backdrop-blur` avrà lo stesso problema.** La soluzione usata è un portale su `document.body`
