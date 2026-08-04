@@ -427,10 +427,7 @@ voci non giustificavano il pattern da gestionale.
 - **I due tetti restano diversi ed è voluto**: 1024px al genitore, 1920px al medico. Unificare
   la barra non è unificare la larghezza: il testo della dashboard steso su 1920px riporta le
   righe illeggibili corrette in fase 1. Sono due decisioni indipendenti.
-- **Il logout sta nella barra solo per il medico**, in fondo a destra, staccato dalle
-  destinazioni come lo era in fondo alla sidebar. Il genitore ce l'ha già dentro `UserMenu`,
-  nell'header di pagina insieme al badge "novità": ripeterlo nella barra darebbe due uscite
-  sulla stessa schermata.
+- **`UserMenu` sta in fondo a destra per entrambi i ruoli** (dal 2026-08-05, vedi sotto).
 - **Costo verticale: 65px.** Con le card "in allerta" (138px + 8 di gap) i pazienti visibili
   senza scorrere non cambiano — 4 a 1024×900 e a 1440×900, 8 a 2560×1440 — perché il taglio
   non arriva a una card intera; con le card compatte (61px) se ne perde una. In cambio il
@@ -449,6 +446,42 @@ Il `<dialog>` di conferma del logout ora vive **dentro** un header con `backdrop
 sidebar il blur non ce l'aveva. Verificato che non ricada nel problema della sezione qui
 sotto: il top layer non è soggetto al blocco contenitore, la finestra copre il viewport
 (1440×900 a partire da 0,0) e resta centrata.
+
+### `UserMenu` nella barra: era una funzione mancante, non estetica (2026-08-05)
+
+`UserMenu` viveva **solo** nell'header della dashboard, cioè su una pagina su quattro. Da
+Diario, Ricette e Info il genitore **non aveva alcun modo di uscire**, e nemmeno di arrivare a
+`/impostazioni`: quella pagina non è tra le sue voci di navigazione, quindi il menu ne è
+l'unico ingresso. Oggi il componente sta in fondo a destra nella barra, per entrambi i ruoli.
+
+- **Sotto `lg` resta dov'era** — nell'header della dashboard, con `lg:hidden` — perché la
+  barra non esiste e quella è l'unica uscita che il genitore ha su mobile. Non è un duplicato:
+  i due si escludono per larghezza.
+- **È montato due volte insieme**, quindi l'id del bottone è parametrico
+  (`btn-user-menu` / `btn-user-menu-desktop`, come `nav-home` / `nav-home-desktop`). Con un id
+  fisso il DOM ne conteneva due uguali e `getElementById` restituiva quello **nascosto** —
+  preso mentre misuravo, non da un errore.
+- **Effetto voluto: il badge "novità" ora si vede su ogni pagina.** Un genitore che sta
+  leggendo le ricette si accorge che il medico ha risposto; prima doveva passare dalla home.
+  L'azzeramento del flag all'apertura del menu è l'unico punto dell'app dove avviene, e
+  funziona da entrambe le posizioni — verificato accendendo `haRispostaMedicoNonLetta`
+  dall'Admin SDK su dev e rileggendo il documento dopo il click, non guardando solo la UI.
+- **Il medico ha lo stesso menu, senza "Profilo & Impostazioni"**: ha già Impostazioni come
+  voce della barra, e due strade per lo stesso posto sulla stessa riga sono rumore. Il motivo
+  per cui ha un dropdown invece del bottone "Esci" secco che aveva nella sidebar non è la
+  simmetria: su una postazione condivisa l'identità dell'account va letta *mentre* si scrivono
+  prescrizioni, e prima compariva solo nell'intestazione della Control Room — cioè non nella
+  scheda paziente, che è dove le prescrizioni si scrivono.
+
+**Bug preesistente corretto per necessità:** la chiusura al click fuori usava un overlay
+`fixed inset-0` che **non ha mai funzionato**, nemmeno su mobile. `UserMenu` vive dentro header
+con `backdrop-blur`, e vale la sezione qui sotto: misurato prima della modifica, l'overlay era
+390×**125** invece di 390×844, cioè grande quanto l'header della dashboard, e cliccare sul
+contenuto non chiudeva niente. Ora la chiusura è un listener `pointerdown` su `document` con
+controllo del ref. Il menu in sé resta `absolute` ed è corretto: un elemento assoluto si ancora
+al primo antenato **posizionato**, che non è toccato dal blocco contenitore — il portale come
+in `SearchAndFilterBar` serviva lì perché il menu veniva *ritagliato* da un `overflow`, che qui
+non succede.
 
 ## `backdrop-blur` sull'header rompe i figli `position: fixed` (2026-08-03)
 

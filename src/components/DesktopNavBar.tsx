@@ -21,18 +21,20 @@
  * medico): il testo del genitore su 1920px tornerebbe a righe illeggibili.
  * Unificare la barra non significa unificare la larghezza.
  *
- * L'uscita sta solo dal lato medico: il genitore ha già il logout dentro
- * UserMenu, nell'header di pagina, e ripeterlo qui significherebbe due uscite
- * sulla stessa schermata.
+ * Il controllo account (UserMenu) sta in fondo a destra per **entrambi** i
+ * ruoli. Prima viveva solo nell'header della dashboard del genitore, che è una
+ * pagina su quattro: da Diario, Ricette e Info non si poteva uscire affatto.
+ * Sotto `lg` la barra non c'è e il menu resta nell'header della dashboard, che
+ * per il genitore è anche l'unica porta verso /impostazioni.
  */
 
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, LogOut } from "lucide-react";
+import { Activity } from "lucide-react";
 import { navItemsPerRuolo, isNavItemAttivo } from "@/lib/navItems";
-import BottoneLogout from "@/components/BottoneLogout";
+import UserMenu from "@/components/UserMenu";
 import type { UserRole } from "@/types";
 
 export default function DesktopNavBar({ ruolo }: { ruolo: UserRole | undefined }) {
@@ -109,21 +111,13 @@ export default function DesktopNavBar({ ruolo }: { ruolo: UserRole | undefined }
         </nav>
 
         {/*
-          L'uscita sta in fondo alla barra, dall'altra parte rispetto alle
-          destinazioni: è un'azione, non un posto dove andare. È la stessa
-          separazione che aveva nel fondo della sidebar.
+          L'account sta in fondo alla barra, dall'altra parte rispetto alle
+          destinazioni: identità e uscita non sono posti dove andare. È la
+          stessa separazione che il logout aveva in fondo alla sidebar.
         */}
-        {isMedico && (
-          <div className="ml-auto flex flex-shrink-0 items-center">
-            <BottoneLogout
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-colors hover:bg-red-950/40 hover:text-red-300 focus-visible:ring-2 focus-visible:ring-red-400"
-              ariaLabel="Esci dall'account"
-            >
-              <LogOut size={16} strokeWidth={1.8} />
-              Esci
-            </BottoneLogout>
-          </div>
-        )}
+        <div className="ml-auto flex flex-shrink-0 items-center">
+          <UserMenu ruolo={ruolo} idBottone="btn-user-menu-desktop" />
+        </div>
       </div>
     </header>
   );

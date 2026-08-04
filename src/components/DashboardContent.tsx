@@ -503,7 +503,13 @@ export default function DashboardContent() {
                 {accountProfile?.nome ?? "Genitore"} 👋
               </h1>
             </div>
-            <UserMenu />
+            {/*
+              Da `lg` in su il controllo account vive nella DesktopNavBar, ed è
+              su ogni pagina invece che solo qui. Sotto `lg` la barra non esiste
+              e questo resta l'unico modo di uscire — e l'unico ingresso a
+              /impostazioni, che il genitore non ha tra le voci di navigazione.
+            */}
+            <UserMenu className="lg:hidden" />
           </div>
         </header>
         <EmptyState />
@@ -537,7 +543,8 @@ export default function DashboardContent() {
               {accountProfile?.nome ?? "Genitore"} 👋
             </h1>
           </div>
-          <UserMenu />
+          {/* Solo sotto `lg`: vedi la nota nell'header dello stato vuoto. */}
+          <UserMenu className="lg:hidden" />
         </div>
 
         {/*
