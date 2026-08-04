@@ -61,7 +61,6 @@ import { getPrescrizioni } from "@/lib/firebase/firestore";
 const DEFAULT_ALERTS: MedicalAlerts = {
   temperaturaMaxC: 38.5,
   doloreSoglia: 7,
-  oreMaxSenzaAlimentazione: 8,
   messaggioEmergenza:
     "Contatta il pediatra o vai al Pronto Soccorso se la temperatura supera i 38.5°C o compare sanguinamento.",
 };

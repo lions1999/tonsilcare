@@ -86,7 +86,6 @@ Su un progetto Firebase nuovo il database è vuoto, e **l'app non se ne accorge 
   |---|---|---|
   | `temperaturaMaxC` | number | `38.5` |
   | `doloreSoglia` | number | `7` |
-  | `oreMaxSenzaAlimentazione` | number | `8` |
   | `messaggioEmergenza` | string | testo da mostrare al genitore in caso di allerta |
 - **`/fasi/{fase_1 … fase_5}`** — configurazione delle fasi post-operatorie. Se la collezione manca l'app resta usabile grazie al fallback hardcoded in `src/hooks/usePhaseConfig.ts` (`FALLBACK_PHASES`), che puoi usare come traccia per i documenti reali.
 

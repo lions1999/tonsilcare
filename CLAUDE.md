@@ -110,11 +110,38 @@ Un quarto residuo, risolto poco dopo (commit `e219ff3`): `firestore.indexes.json
 
 I trigger di alert basati su trend clinici (febbre persistente su più giorni, vomito ripetuto, peggioramento generale delle condizioni) sono **bloccati**, in attesa di soglie cliniche concrete da cliente/nutrizionista (quante ore/giorni per "persistente", quanti episodi per "ripetuto", quali segnali definiscono "peggioramento generale"). Non implementare euristiche arbitrarie nel frattempo: gli alert attuali (`config/alerts`) restano single-reading (temperatura/dolore sopra soglia, sanguinamento/vomito singolo) finché non arrivano numeri reali da usare.
 
-Da non confondere con il bug descritto in "Debiti aperti": *single-reading* è una scelta e
-riguarda **quale logica** si applica (una misura sola invece di un trend); il bug riguarda
-**su quale misura** la si applica — oggi solo l'ultimo log, quindi un valore rientrato
-nasconde quello fuori soglia registrato prima. Il secondo va corretto anche restando
-single-reading.
+Da non confondere con il bug corretto il 2026-08-04: *single-reading* è una scelta e riguarda
+**quale logica** si applica (una misura sola invece di un trend); quel bug riguardava **su
+quale misura** la si applica — solo l'ultimo log, quindi un valore rientrato nascondeva quello
+fuori soglia registrato prima. Corretto restando single-reading: oggi la finestra è di 24 ore.
+
+### Domanda aperta per il nutrizionista: come si segnala l'alimentazione insufficiente
+
+Va posta **insieme** alle soglie qui sopra, non come questione a sé: è la stessa famiglia di
+decisione. Nasce dalla rimozione di `oreMaxSenzaAlimentazione` (2026-08-04), soglia che stava
+in `/config/alerts` e che nessun codice leggeva — e che **non era implementabile così com'era
+definita**: "ore senza alimentazione" richiede di sapere *quando* il bambino ha mangiato, e il
+diario registra `numeroPasti` per compilazione, senza alcun orario. L'unico istante disponibile
+è `createdAt`, cioè quando il genitore ha aperto il form: un log delle 22:00 che dice "3 pasti"
+non dice niente su quando è avvenuto l'ultimo, e un genitore che semplicemente non apre l'app
+per nove ore farebbe scattare una soglia che misura il silenzio, non il digiuno.
+
+Tre alternative valutate e scartate **ora** — quando arriva la risposta si riparte da qui,
+senza rifare l'analisi:
+
+- **`rifiutoCibo` come proxy.** È un booleano già raccolto dal diario, non richiederebbe di
+  inventare nessun numero e resterebbe single-reading. Scartato perché stabilire che il rifiuto
+  del cibo *da solo* è un segnale di allerta clinica è una decisione medica, non nostra.
+- **`pastiMinGiornalieri`.** Implementabile sul dato esistente, ma serve un numero dal cliente
+  e anche *da che ora del giorno* abbia senso valutarlo: il log è un'istantanea, e zero pasti
+  alle 9:00 del mattino è normale. Senza quei due numeri è un'euristica arbitraria.
+- **Orario dell'ultimo pasto nel form del diario.** Rende la soglia in ore calcolabile davvero,
+  ma è un campo nuovo per il genitore e più attrito nella compilazione: da concordare col
+  cliente, non una correzione tecnica.
+
+Nota di metodo: la riformulazione apparentemente innocua "giorni consecutivi con zero pasti"
+**non è gratuita** — richiede un numero di giorni dal clinico e aggrega su più giornate, quindi
+ricade esattamente nella famiglia bloccata qui sopra.
 
 ## Notifiche push rimosse, sostituite da "novità" in-app (2026-07-17)
 
@@ -145,30 +172,103 @@ Non è un problema teorico, è successo due volte:
 zone della pagina, ed è per questo che è sfuggita la seconda volta pur essendo già documentata
 nell'intestazione di `StudioPazientiContext.tsx`.
 
-## Debiti aperti: due bug e due limiti di scala (2026-08-03)
+## L'allerta si valuta su una finestra di 24 ore, non sull'ultimo log (2026-08-04)
+
+`StudioPazientiContext` leggeva un solo log per paziente e valutava le soglie su quello.
+Conseguenza: 40 °C alle 8:00 e 37 °C alle 20:00 davano un paziente **senza alcun alert** — una
+misura rientrata cancellava quella fuori soglia registrata poche ore prima. Invisibile con chi
+compila una volta al giorno, evidente col primo genitore diligente.
+
+Oggi `getLogsFinestraAlert(utenteId, ORE_FINESTRA_ALERT)` legge i log delle ultime 24 ore e
+`valutaAlertFinestra` accende l'allerta se **una qualsiasi** di quelle letture supera le
+soglie. **Resta single-reading**: cambia su quali letture si applica la logica, non quale
+logica si applica. Non è il lavoro sui trend clinici (P0-4), che resta bloccato.
+
+- **Finestra mobile, non giornata di calendario.** A mezzanotte l'allerta delle 23:50
+  sparirebbe da sola: lo stesso bug spostato di qualche ora.
+- **`ORE_FINESTRA_ALERT` sta in `lib/utils/alert.ts`, non in `/config/alerts`.** Non è una
+  soglia clinica: dice per quanto tempo un segnale resta visibile, non quale valore è
+  preoccupante.
+- **Il costo in letture non è cambiato:** resta una query per paziente. Se la finestra non è
+  vuota, il suo primo elemento è anche l'ultimo log in assoluto, quindi la seconda query parte
+  solo per chi non registra da 24 ore. L'assunzione su cui poggia (ogni log ha `createdAt`)
+  è annotata nel commento della funzione, insieme al perché `getUtenteLogs` si comporta
+  diversamente sullo stesso dato.
+- **Nessuna modifica a `firestore.rules` né a `firestore.indexes.json`:** il medico legge già
+  la sotto-collezione `diario`, e `where` + `orderBy` insistono sullo stesso campo, quindi
+  basta l'indice a campo singolo automatico.
+
+### Cosa succede quando l'allerta esce dalla finestra
+
+**Il paziente smette semplicemente di essere rosso, senza lasciare traccia di esserlo stato**,
+e scende nell'ordinamento perché `hasAlert` è il primo criterio di sort. È una scelta
+consapevole, non una dimenticanza: la finestra sposta la sparizione da "al log successivo" a
+"dopo 24 ore", non la elimina.
+
+Attenuazione parziale da conoscere: `haNuovoLogNonLetto` è indipendente e **non** scade col
+tempo — resta acceso finché il medico non apre quella scheda. Un paziente che ha avuto 40 °C
+ieri e non è mai stato aperto conserva quindi il pallino blu. Non è un sostituto: dice "c'è
+qualcosa di nuovo", non "c'era un'allerta".
+
+**Evoluzione già ragionata, se il medico chiederà "come faccio a sapere quali allerte ho già
+visto":** allerta persistente finché non viene presa in carico. Clinicamente è la più corretta
+— un allarme non dovrebbe spegnersi da solo — ma non è la correzione di un bug: richiede un
+campo nuovo su `/utenti`, una scrittura dal client medico, una modifica alla allowlist
+`hasOnly` in `firestore.rules` con deploy e riverifica su dev *e* produzione (oggi allineate,
+vedi la sezione sulle rules) e un'azione "prendi in carico" che oggi non esiste in nessuna
+schermata. Va progettata, non aggiunta.
+
+### Le condizioni di allerta hanno un posto solo: `src/lib/utils/alert.ts`
+
+Erano scritte a mano in quattro punti, con quattro definizioni **divergenti**: la Control Room
+guardava sanguinamento/vomito/temperatura/dolore, la scheda paziente ometteva il dolore, il
+form del diario guardava solo temperatura e sanguinamento, la dashboard del genitore aveva 38
+e 7 hardcoded. Ora Control Room e scheda paziente usano `valutaAlertFinestra` /
+`valutaAlertLog`; **i due punti lato genitore no** — sono nella lista dei bug aperti, perché
+allinearli cambia cosa vede la famiglia.
+
+Due conseguenze visibili al medico, dichiarate perché altrimenti sembrano malfunzionamenti:
+
+1. **La card mostra il motivo dell'allerta, con l'ora.** Serve: da quando si guardano 24 ore,
+   la lettura che accende il rosso spesso non è quella riassunta sulla card, e senza motivo il
+   medico leggerebbe "Temp: 37.0°C" dentro un riquadro rosso. Si mostrano tutti i motivi
+   (deduplicati per tipo, tenendo la lettura peggiore, in ordine di gravità), non solo il più
+   grave: con febbre al mattino e dolore 9/10 nel pomeriggio, tenere solo il primo
+   nasconderebbe il secondo. Oltre due si passa a `+N`. L'ora è nuda solo se la lettura è di
+   oggi, altrimenti prefisso "ieri" — dentro 24 ore le uniche possibilità sono quelle due, e
+   alle 07:00 un "alle 08:00" senza prefisso sembrerebbe imminente.
+2. **Il dolore accende l'icona rossa sui singoli log della scheda paziente, anche su quelli
+   storici** che ieri non l'avevano. Lo storico non è cambiato, è cambiato come lo si legge:
+   la scheda ora usa la stessa definizione della lista invece di una sua. Nello stesso
+   passaggio sono spariti i fallback hardcoded `?? 38.5` e `?? 7`: senza `/config/alerts` ora
+   non viene evidenziato niente, coerentemente con la Control Room, invece di applicare soglie
+   che nessuno ha configurato.
+
+## Debiti aperti: un bug e due limiti di scala (2026-08-03, aggiornato 2026-08-04)
 
 Emersi confrontando la bozza di specifica col codice. **Vanno trattati con urgenza diversa**:
-i primi due producono comportamento sbagliato oggi, gli altri due funzionano correttamente ora
-e si romperanno al crescere dell'uso.
+il primo produce comportamento sbagliato oggi, gli altri due funzionano correttamente ora e si
+romperanno al crescere dell'uso. I due bug del 2026-08-03 sono stati corretti (vedi la sezione
+sulla finestra di 24 ore); al loro posto ne è emerso un terzo, della stessa famiglia del primo.
 
-### Bug — sbagliati adesso, con i dati attuali
+### Bug — sbagliato adesso, con i dati attuali
 
-- **`oreMaxSenzaAlimentazione` è una soglia che nessun codice legge.** Sta in `/config/alerts`
-  e nei default di `DashboardContent.tsx`, e nessuna logica la usa. È il fallimento silenzioso
-  peggiore che abbiamo: si concorda un valore col medico, lo si scrive in configurazione, e non
-  produce nulla — senza che niente lo segnali. O si implementa, o si toglie dalla config e dal
-  tipo `MedicalAlerts`.
-- **`hasAlert` è calcolato solo sull'ultimo log.** `StudioPazientiContext` legge
-  `getLatestLog(utente.id)` e valuta le soglie su quello. Se il genitore registra 40 °C alle
-  8:00 e 37 °C alle 20:00, per il medico quel paziente **non ha alcun alert**: un allarme
-  risolto cancella quello precedente. Invisibile con chi compila una volta al giorno, evidente
-  col primo genitore diligente.
+- **`VitalsQuickCard` colora i parametri del genitore con soglie scritte a mano.** In
+  `DashboardContent.tsx` i due riquadri "Temp." e "Dolore" confrontano con `38` e `7`
+  letterali, ignorando `/config/alerts` che la stessa pagina ha già caricato per il banner. È
+  la stessa famiglia di `oreMaxSenzaAlimentazione`, in forma speculare: lì una configurazione
+  che nessuno leggeva, qui **una configurazione che mente**. Se il medico alza la soglia a 39,
+  il genitore continua a vedere il riquadro rosso a 38 e nessuno se ne accorge — e già oggi il
+  valore configurato è 38.5, quindi le due schermate dissentono. Non corretto insieme agli
+  altri due perché cambia cosa vede il genitore: va deciso, non fatto di passaggio. Stesso
+  discorso per il modale di emergenza in `diario/nuovo/page.tsx`, che scatta su temperatura o
+  sanguinamento ma **non** su vomito e dolore, che invece accendono l'allerta del medico.
 
 ### Limiti di scala — corretti oggi, rotti domani
 
 - **La Control Room non ha paginazione.** `getAllUtenti()` scarica l'intera collezione e poi
-  esegue **una query per paziente** per l'ultimo log; ricerca e filtri lavorano in memoria su
-  tutto l'elenco. Con 3 pazienti è istantaneo, con 200 sono 201 letture a ogni apertura. Da
+  esegue **una query per paziente** per i log della finestra di allerta; ricerca e filtri
+  lavorano in memoria su tutto l'elenco. Con 3 pazienti è istantaneo, con 200 sono 201 letture a ogni apertura. Da
   affrontare prima che i pazienti siano molti, non quando lo sono.
 - **Non esiste associazione medico–paziente.** Nessun campo lega un paziente a un medico:
   `getAllUtenti()` legge tutto e le regole autorizzano qualunque account con `ruolo: medico`.

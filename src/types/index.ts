@@ -126,11 +126,20 @@ export interface Prescrizione {
 // Configurazione Firestore (data-driven, NON hardcodata nel frontend)
 // ---------------------------------------------------------------------------
 
-/** Soglie di alert medico — lette da Firestore > /config/alerts */
+/**
+ * Soglie di alert medico — lette da Firestore > /config/alerts
+ *
+ * Ogni campo qui dentro deve essere letto da qualche parte. `oreMaxSenzaAlimentazione`
+ * è stato rimosso il 2026-08-04 perché non lo leggeva nessuno e non era
+ * implementabile: "ore senza alimentazione" richiede di sapere quando il bambino
+ * ha mangiato, e il diario registra `numeroPasti` per compilazione, senza orari.
+ * Una soglia che si può configurare e non produce nulla è peggio di una soglia
+ * che manca. La domanda clinica aperta sta in CLAUDE.md, con le alternative già
+ * valutate.
+ */
 export interface MedicalAlerts {
   temperaturaMaxC: number;    // Es. 38.5
   doloreSoglia: number;       // Scala 0–10, es. 7
-  oreMaxSenzaAlimentazione: number;
   messaggioEmergenza: string; // Es. "Chiama il pediatra se..."
 }
 
