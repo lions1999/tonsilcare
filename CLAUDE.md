@@ -409,6 +409,47 @@ già esistenti (e `AccountProfile` dichiara `uid` obbligatorio), quindi va fatto
 di passaggio. Stessa cosa era `seed-data/fasi.json`, che aveva `id` come campo: lì è già stato
 rimosso.
 
+## Una sola barra in alto, per entrambi i ruoli (2026-08-04)
+
+`DesktopTopBar` (genitore) e `DesktopSidebar` (medico) facevano la stessa cosa con markup
+diverso, pur leggendo già le voci dalla stessa sorgente: due posti dove correggere lo stesso
+bug. Oggi esiste solo `src/components/DesktopNavBar.tsx`, che prende il ruolo come prop.
+**Cambiano le voci e le azioni, non il layout.** Il medico ha perso i 240px di sidebar proprio
+nella schermata dove l'orizzontale è conteso — lista da 420px più dettaglio affiancati — e tre
+voci non giustificavano il pattern da gestionale.
+
+- **Barra e contenuto condividono il wrapper**: `mx-auto`, `px-6` e lo **stesso tetto di
+  larghezza per ruolo**, replicato in due punti (`AppShell` col prefisso `lg:`, la barra
+  senza). È l'unico modo per cui il margine sinistro coincide, e per il genitore è la
+  differenza tra una barra ancorata al contenuto e una col logo al bordo estremo mentre le
+  card stanno al centro. Misurato a 2560: logo e prima colonna entrambi a x=792 (genitore),
+  x=344 (medico). Se cambi un tetto, cambiali tutti e due — non lo segnala niente.
+- **I due tetti restano diversi ed è voluto**: 1024px al genitore, 1920px al medico. Unificare
+  la barra non è unificare la larghezza: il testo della dashboard steso su 1920px riporta le
+  righe illeggibili corrette in fase 1. Sono due decisioni indipendenti.
+- **Il logout sta nella barra solo per il medico**, in fondo a destra, staccato dalle
+  destinazioni come lo era in fondo alla sidebar. Il genitore ce l'ha già dentro `UserMenu`,
+  nell'header di pagina insieme al badge "novità": ripeterlo nella barra darebbe due uscite
+  sulla stessa schermata.
+- **Costo verticale: 65px.** Con le card "in allerta" (138px + 8 di gap) i pazienti visibili
+  senza scorrere non cambiano — 4 a 1024×900 e a 1440×900, 8 a 2560×1440 — perché il taglio
+  non arriva a una card intera; con le card compatte (61px) se ne perde una. In cambio il
+  pannello dettaglio guadagna 240px a ogni larghezza.
+- **`SearchAndFilterBar` continua a servirsi di `overflow-x-auto`, e il portale del menu
+  resta.** I 240px recuperati vanno al dettaglio, non ai filtri: il pannello lista è
+  `lg:w-[420px]` **fisso**. Misurato dopo la modifica, sommando i figli a menu chiuso: 462.6px
+  di contenuto contro 396 disponibili, identico a prima e a tutte le larghezze.
+
+Verificato a 390, 1024, 1440 e 2560px su entrambi i ruoli. Sotto 1024px non cambia **niente**:
+confronto elemento per elemento del DOM renderizzato prima e dopo, 117 elementi a /studio e
+143 sulla dashboard genitore, tutte le geometrie identiche (l'unico scarto è la CTA "Aggiungi
+Log Diario", che oscilla di 5px da sola per via dell'animazione `pulse-ring`).
+
+Il `<dialog>` di conferma del logout ora vive **dentro** un header con `backdrop-blur` — la
+sidebar il blur non ce l'aveva. Verificato che non ricada nel problema della sezione qui
+sotto: il top layer non è soggetto al blocco contenitore, la finestra copre il viewport
+(1440×900 a partire da 0,0) e resta centrata.
+
 ## `backdrop-blur` sull'header rompe i figli `position: fixed` (2026-08-03)
 
 Gli header di questo progetto usano `backdrop-blur-xl`. `backdrop-filter` (come `transform`,

@@ -6,12 +6,12 @@
  * Esiste perché la scelta dipende dallo stato di autenticazione, che è
  * accessibile solo lato client, mentre il root layout è un server component.
  *
- * Regola di fondo: **la larghezza non viene mai rilevata in JavaScript.** Le tre
- * navigazioni sono tutte nel DOM e vengono mostrate o nascoste dai breakpoint
+ * Regola di fondo: **la larghezza non viene mai rilevata in JavaScript.** Le due
+ * navigazioni sono entrambe nel DOM e vengono mostrate o nascoste dai breakpoint
  * Tailwind. Usare matchMedia produrrebbe un mismatch di idratazione e uno
  * sfarfallio a ogni caricamento. Il ruolo, che JavaScript conosce, discrimina
- * *quale* chrome montare; la larghezza, che conosce solo il CSS, discrimina
- * quale mostrare.
+ * *cosa* mostrano; la larghezza, che conosce solo il CSS, discrimina quale
+ * delle due si vede.
  *
  * Sotto 1024px la struttura resta identica a quella precedente: i wrapper
  * aggiunti sono contenitori a blocco senza stile finché non scatta `lg`.
@@ -22,8 +22,7 @@
 import type { ReactNode } from "react";
 import { useAuth } from "@/context/AuthContext";
 import BottomNav from "@/components/BottomNav";
-import DesktopTopBar from "@/components/DesktopTopBar";
-import DesktopSidebar from "@/components/DesktopSidebar";
+import DesktopNavBar from "@/components/DesktopNavBar";
 import ProfiloNonDisponibile from "@/components/ProfiloNonDisponibile";
 
 export default function AppShell({ children }: { children: ReactNode }) {
@@ -52,10 +51,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
       Sotto `lg` resta il normale scorrimento di pagina.
     */
     <div className="lg:flex lg:h-dvh lg:overflow-hidden">
-      {autenticato && isMedico && <DesktopSidebar />}
-
       <div className="lg:flex lg:min-w-0 lg:flex-1 lg:flex-col">
-        {autenticato && !isMedico && <DesktopTopBar />}
+        {/*
+          Una sola barra per entrambi i ruoli: cambiano voci e azioni, non il
+          layout. Il tetto di larghezza qui sotto invece resta diverso, ed è una
+          decisione indipendente da quella sulla navigazione.
+        */}
+        {autenticato && <DesktopNavBar ruolo={accountProfile?.ruolo} />}
 
         {/*
           Contenitore del contenuto. Sotto `lg` conserva esattamente le classi
@@ -71,6 +73,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
           arriva a 3116px: a quelle ampiezze l'occhio perde la corrispondenza
           tra la prima e l'ultima colonna della stessa riga. 1920px riempie
           qualsiasi monitor normale senza degenerare.
+
+          ⚠️ Questi due tetti, e il `px-6`, sono replicati in DesktopNavBar: è
+          così che barra e contenuto condividono il margine sinistro. Cambiarli
+          qui e non lì scolla la barra dal contenuto, e nulla lo segnala. Non
+          sono una costante condivisa perché Tailwind rileva solo nomi di
+          classe scritti per intero, e qui servono col prefisso `lg:` mentre
+          nella barra, che esiste solo da `lg` in su, no.
         */}
         <div
           className={`relative mx-auto flex min-h-dvh max-w-lg flex-col lg:min-h-0 lg:w-full lg:flex-1 lg:px-6 ${

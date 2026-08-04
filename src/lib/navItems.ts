@@ -2,10 +2,10 @@
  * @file src/lib/navItems.ts
  * @description Sorgente unica delle voci di navigazione.
  *
- * Le stesse destinazioni sono consumate da tre componenti diversi — la bottom
- * nav su mobile, la top bar del genitore e la sidebar del medico su desktop —
- * quindi vivono qui e non dentro uno di essi: duplicarle significherebbe
- * garantire che prima o poi divergano.
+ * Le stesse destinazioni sono consumate da due componenti diversi — la bottom
+ * nav su mobile e la barra orizzontale su desktop, quest'ultima condivisa dai
+ * due ruoli — quindi vivono qui e non dentro uno di essi: duplicarle
+ * significherebbe garantire che prima o poi divergano.
  */
 
 import {

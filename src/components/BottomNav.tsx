@@ -3,10 +3,10 @@
  * @description Bottom Navigation Bar fissa in stile app mobile.
  *
  * Le destinazioni dipendono dal ruolo e vivono in @/lib/navItems, condivise con
- * la top bar del genitore e la sidebar del medico.
+ * la barra orizzontale desktop (DesktopNavBar), che serve entrambi i ruoli.
  *
- * Visibile solo sotto `lg`: da 1024px in su la navigazione passa alla top bar o
- * alla sidebar. La barra resta comunque nel DOM e viene nascosta via CSS, non
+ * Visibile solo sotto `lg`: da 1024px in su la navigazione passa alla barra in
+ * alto. La barra resta comunque nel DOM e viene nascosta via CSS, non
  * smontata da JavaScript: rilevare il breakpoint a runtime causerebbe uno
  * sfarfallio all'idratazione.
  *

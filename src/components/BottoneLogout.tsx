@@ -4,7 +4,7 @@
  * eseguire il logout.
  *
  * Esiste come componente unico perché l'app ha più punti da cui si esce
- * (sidebar del medico, menu utente del genitore, impostazioni, schermata di
+ * (barra desktop del medico, menu utente del genitore, impostazioni, schermata di
  * profilo non disponibile) e ognuno di essi deve comportarsi allo stesso modo:
  * stessa conferma e, soprattutto, stessa procedura di uscita. Prima non era
  * così — la pagina Impostazioni chiamava Firebase direttamente e lasciava il

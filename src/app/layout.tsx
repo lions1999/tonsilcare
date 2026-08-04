@@ -118,8 +118,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <AuthProvider>
           <UtenteProvider>
             {/*
-              La struttura del guscio (bottom nav su mobile, top bar o sidebar
-              su desktop a seconda del ruolo) dipende dallo stato di
+              La struttura del guscio (bottom nav su mobile, barra in alto su
+              desktop per entrambi i ruoli) dipende dallo stato di
               autenticazione, che è disponibile solo lato client: vive quindi in
               AppShell e non qui, dove siamo in un server component.
             */}
