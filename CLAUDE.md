@@ -307,10 +307,30 @@ I contenuti vivono in `seed-data/*.json`, versionati. Gli id dei documenti sono 
 
 Prima di investigare una feature data-driven che sembra "rotta" su un ambiente, verificare che la collezione/documento Firestore da cui dipende esista davvero, invece di assumere un bug di codice.
 
-### `/config/alerts` mancante: il lato medico tace, il lato genitore finge (2026-08-04)
+### Stato del seeding: dev e produzione popolate (2026-08-04)
 
-**Su `tonsilcare-app` la collezione `/config` è vuota** — verificato per lettura il 2026-08-04,
-zero documenti. In produzione, quindi, tutto ciò che segue non è ipotetico: è lo stato attuale.
+Entrambi gli ambienti hanno tutte e quattro le collezioni, con lo stesso contenuto del repo.
+**Produzione è stata popolata il 2026-08-04**, quando era completamente vuota — `/ricette`,
+`/info`, `/fasi`, `/config` e anche `/utenti` e `/accounts` a zero documenti, quindi il seed
+non ha sovrascritto niente. Prima di rilanciarlo su `tonsilcare-app` quella condizione **non
+vale più**: `set()` è senza `merge` e riscrive i documenti interi.
+
+Verifica fatta rileggendo con una connessione separata invece di fidarsi del riepilogo che lo
+script stampa da sé: 13 documenti su 13, confronto per impronta del contenuto contro
+`seed-data/`, zero differenze. È lo stesso principio delle rules — non si verifica una
+scrittura con lo stesso canale che potrebbe aver mentito.
+
+⚠️ **Le 5 fasi su produzione sono le nostre, non quelle della specifica cliente.** Il cliente
+deve ancora confermare se sono 4 o 5 (vedi la sezione sulle fasi). Scelta consapevole: i
+contenuti e soprattutto `/config/alerts` valgono più dell'attesa, e il riseed costerà quanto
+sarebbe costato oggi. Quando arriverà la risposta, però, **vanno riseedati entrambi gli
+ambienti**, non solo dev — più `FASI_FALLBACK` in `useFasi.ts` e il tipo `PostOpPhase`, che è
+un'unione di cinque id e non si aggiorna da solo togliendo una fase dai dati.
+
+### Se `/config/alerts` manca: il lato medico tace, il lato genitore finge (2026-08-04)
+
+Da oggi non è più lo stato di nessuno dei due ambienti, ma resta vero per qualsiasi progetto
+nuovo — ed è il motivo per cui l'avviso qui sotto va comunque fatto.
 
 `getMedicalAlerts()` restituisce `null`, e da lì le due metà dell'app si comportano in modo
 opposto:
@@ -362,14 +382,9 @@ Requisiti, perché non venga implementato come un banner qualunque:
   `StudioPazientiContext`, che lo traduce silenziosamente in "nessun motivo di allerta". Serve
   esporlo come stato (`configMancante`) perché la lista possa mostrarne qualcosa.
 
-**Su produzione la cosa da fare resta popolare `/config/alerts`**, tenendo presente che
-`scripts/seed.mjs` riscrive tutte e quattro le collezioni e non solo quella. Al 2026-08-04
-questo non è un rischio: `/ricette`, `/info`, `/fasi`, `/config`, **e anche `/utenti` e
-`/accounts`** sono tutte vuote su `tonsilcare-app` — verificato per lettura. Non c'è niente da
-sovrascrivere perché la produzione non è mai stata usata. (Gli utenti di Firebase Auth non
-sono stati enumerati: le ADC locali richiedono un quota project. `/accounts` viene però scritto
-alla registrazione, quindi zero documenti lì è un indizio forte che nessuno si sia mai
-registrato.)
+L'avviso resta da fare **anche ora che produzione è popolata**: protegge il prossimo ambiente,
+e protegge questo se qualcuno cancella il documento. Non è stato declassato dal seed — quello
+ha tolto la condizione, non il fatto che quando si presenta nessuno se ne accorge.
 
 ## L'id del documento vince sempre sul campo salvato (2026-08-03)
 
@@ -516,9 +531,15 @@ invece di `faseAttualeId`. Prima quel filtro selezionava i pazienti in base a do
 trovavano il giorno dell'iscrizione, e con 4 fasi avrebbe offerto una fase inesistente.
 
 **Il cliente deve ancora confermare se le fasi sono 4 o 5.** Quando risponderà: aggiornare
-`seed-data/fasi.json`, rilanciare il seed, allineare `FASI_FALLBACK`. Il resto segue da solo,
-Control Room compresa. Nota che il tipo `PostOpPhase` è un'unione di cinque id: togliere una
-fase dai dati non aggiorna il tipo, e aggiungerne una richiede di toccarlo.
+`seed-data/fasi.json`, rilanciare il seed **su dev e su produzione** — dal 2026-08-04 le
+nostre 5 fasi stanno anche su `tonsilcare-app`, quindi non basta più allineare l'ambiente di
+sviluppo — e allineare `FASI_FALLBACK`. Il resto segue da solo, Control Room compresa. Nota
+che il tipo `PostOpPhase` è un'unione di cinque id: togliere una fase dai dati non aggiorna il
+tipo, e aggiungerne una richiede di toccarlo.
+
+Il seed su produzione richiede il flag esplicito e riscrive tutte e quattro le collezioni, non
+solo `/fasi`: vedi la sezione sul seeding, e ricorda che da quando quell'ambiente ha contenuti
+la riscrittura non è più a costo zero come lo era su un progetto vuoto.
 
 ## Cookie `__role`: scrittura sincrona al login/registrazione (2026-07-17)
 
