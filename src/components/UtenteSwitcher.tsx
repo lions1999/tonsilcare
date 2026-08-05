@@ -45,7 +45,7 @@ export default function UtenteSwitcher() {
         className="flex items-center gap-2 rounded-xl border border-dashed border-slate-600 px-3 py-2 text-sm text-slate-400 transition-colors hover:border-blue-500 hover:text-blue-400"
       >
         <PlusCircle size={15} />
-        Aggiungi utente
+        Aggiungi paziente
       </Link>
     );
   }
@@ -55,7 +55,7 @@ export default function UtenteSwitcher() {
       {/* Trigger */}
       <button
         id="btn-utente-switcher"
-        aria-label="Seleziona utente"
+        aria-label="Seleziona paziente"
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
@@ -65,7 +65,13 @@ export default function UtenteSwitcher() {
           <Baby size={14} className="text-blue-400" />
         </div>
         <div className="text-left">
-          <p className="text-[10px] leading-none text-slate-400 mb-0.5">Utente</p>
+          {/*
+            "Paziente" al singolare perché etichetta il singolo nome qui sotto,
+            quello attivo. Il testo di questo file dice "paziente" ovunque; il
+            componente, le variabili e la rotta /utenti/nuovo restano "utente" ed
+            è voluto — vedi la regola sul vocabolario in CLAUDE.md.
+          */}
+          <p className="text-[10px] leading-none text-slate-400 mb-0.5">Paziente</p>
           <p className="text-sm font-semibold leading-none text-white">
             {activeUtente.nome} {activeUtente.cognome}
           </p>
@@ -86,7 +92,7 @@ export default function UtenteSwitcher() {
         <>
           <div
             role="listbox"
-            aria-label="Lista utenti"
+            aria-label="Lista pazienti"
             className="absolute left-0 top-full z-50 mt-1 min-w-[220px] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/40"
           >
             {utenti.map((utente) => (
@@ -119,7 +125,7 @@ export default function UtenteSwitcher() {
                 className="flex items-center gap-3 px-4 py-3 text-sm text-blue-400 transition-colors hover:bg-slate-800"
               >
                 <PlusCircle size={14} />
-                Aggiungi utente
+                Aggiungi paziente
               </Link>
             </div>
           </div>

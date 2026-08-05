@@ -77,7 +77,7 @@ export default function ImpostazioniPage() {
         {/* SEZIONE UTENTI */}
         <section className="mb-10">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-500">
-            Utenti Associati
+            Pazienti Associati
           </h2>
           <div className="space-y-3">
             {utenti.length > 0 ? (
@@ -97,7 +97,7 @@ export default function ImpostazioniPage() {
                 </div>
               ))
             ) : (
-              <p className="text-sm text-slate-500">Nessun utente associato a questo account.</p>
+              <p className="text-sm text-slate-500">Nessun paziente associato a questo account.</p>
             )}
           </div>
         </section>

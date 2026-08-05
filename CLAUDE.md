@@ -114,6 +114,84 @@ Il rename da "Paziente" a "Utente" (commit `e4af1ac`) non è mai stato completat
 
 Un quarto residuo, risolto poco dopo (commit `e219ff3`): `firestore.indexes.json` aveva un indice orfano su `collectionGroup: "pazienti"` con campo `parenteUid`, che nessuna query usava più; oggi il file è vuoto (`{"indexes": [], "fieldOverrides": []}`). **Qualsiasi nuova feature che tocca route, naming o path in questo repo va controllata con sospetto per residui analoghi** — non dare per scontato che un rename storico sia stato applicato ovunque.
 
+## Vocabolario: "utente" nel codice, "paziente" a schermo (2026-08-06)
+
+**Il codice dice `utente`, l'interfaccia dice "paziente".** Non è un rename a metà: è una
+separazione voluta fra identificatori e testo, decisa dopo aver visto cosa costa il percorso
+inverso (la sezione qui sopra: giorni di residui per un rename fatto a metà). Fare
+Utente → Paziente anche negli identificatori produrrebbe **due convenzioni conviventi**, che è
+peggio di una sola imperfetta.
+
+Restano `utente` e non si toccano: la collezione `/utenti`, le rotte `/utenti/nuovo` e
+`/studio/utente/[id]`, i tipi (`UtenteProfile`, `UtenteWithStatus`), i componenti
+(`UtenteSwitcher`, `UtenteProvider`), gli hook (`useUtente`, `useUtenti`), le funzioni
+(`getUtente`, `addUtente`, `getAllUtenti`, `utenteProfileSchema`), le variabili, gli attributi
+`id=` usati per le misure (`btn-utente-switcher`, `btn-salva-utente`, …), la chiave localStorage
+`tonsilcare_active_utente_id` e i messaggi di `console.*`.
+
+### Quale parola usare, a schermo
+
+Tre casi, e la regola è **chi parla a chi**:
+
+| parola | quando | esempi |
+|---|---|---|
+| **bambino** | l'app parla **al genitore del suo** figlio: primo accesso, stato vuoto | "Aggiungi il tuo bambino", "Aggiungi il tuo bambino per iniziare il monitoraggio" |
+| **paziente** | l'app **nomina un'entità**: liste, form di ritorno, impostazioni, `aria-label` | "Nuovo paziente", "Pazienti Associati", "Seleziona paziente" |
+| **paziente**, mai bambino | **qualsiasi schermata del medico** | "Pazienti in Triage", "Paziente non trovato" |
+
+Perché "bambino" non è un residuo da ripulire: cambiarlo in "paziente" renderebbe fredda **la
+prima frase che un genitore legge**. E perché il medico non lo usa mai: non ha quel rapporto, e
+"bambino" in Control Room suonerebbe fuori posto.
+
+Conseguenza concreta già applicata: in `utenti/nuovo` **il titolo cambia col ramo** — "Aggiungi
+il tuo bambino" al primo accesso, "Nuovo paziente" al ritorno. Prima diceva "Aggiungi il tuo
+bambino" / "Nuovo utente", che era incoerenza vera e non registro.
+
+### Due stati vuoti diversi devono avere due frasi diverse
+
+Emerso applicando il rename: la Control Room ha **due** stati vuoti, e prima si distinguevano
+solo perché uno diceva "utente" e l'altro "paziente" — cioè per caso.
+
+| stato | frase |
+|---|---|
+| non c'è nessun paziente | "Nessun paziente **registrato**." |
+| i filtri non selezionano nessuno | "Nessun paziente **trovato**" + "Nessun paziente corrisponde ai filtri selezionati." |
+
+Tradurre entrambi in "Nessun paziente trovato" sarebbe stato più fedele al rename e peggio per
+il medico: **non saprebbe se il paziente non c'è o se l'ha nascosto lui con un filtro**, e le
+due cose richiedono azioni opposte (crearlo, oppure azzerare i filtri). Vale per qualunque
+elenco che venga aggiunto: se una schermata può essere vuota per più di un motivo, i motivi
+vanno scritti diversi.
+
+### L'unica eccezione: `UserMenu` dice "Menu utente" ed è corretto
+
+`aria-label="Menu utente"` in `src/components/UserMenu.tsx` (due occorrenze, la copia mobile e
+quella desktop) **non va rinominata**. Quel menu è dell'**account loggato** — il genitore o il
+medico — non del bambino: contiene il logout e l'accesso a `/impostazioni`. Un lettore di
+schermo che annunciasse "menu paziente" sopra il logout del genitore direbbe una cosa
+attivamente falsa.
+
+È il motivo per cui la regola non si può applicare con una sostituzione globale: **prima di
+cambiare una stringa, chiedersi se "utente" lì significa il bambino o la persona che ha fatto
+il login.**
+
+### Nomi propri: iniziale maiuscola solo in presentazione
+
+`conInizialeMaiuscola` (`src/lib/utils/testo.ts`) è applicata al nome dell'**account** nei
+quattro punti in cui compare: i due saluti della dashboard, `UserMenu` e `/impostazioni`. Serve
+perché chi si registra scrivendo tutto minuscolo vedeva "D" nell'avatar (che faceva già
+`toUpperCase()`) e "davide" nel nome accanto, a due centimetri di distanza.
+
+È **di sola presentazione** — il documento su Firestore non viene riscritto, come per età e BMI
+in `lib/utils/paziente.ts`. E tocca **solo la prima lettera**: abbassare il resto trasformerebbe
+"McDonald" in "Mcdonald" e "De Luca" in "De luca".
+
+⚠️ **Debito noto: i nomi dei bambini non passano di lì.** Se un genitore digita "sofia" nel form
+del paziente, la scheda clinica che il medico legge dirà "sofia", e così la Control Room, lo
+switcher e il diario. Stessa funzione, altro insieme di punti; non fatto perché è un dato
+diverso e va deciso insieme (anche `cognome`, e se valga la pena normalizzare in scrittura nel
+form invece che in lettura ovunque).
+
 ## Stato feature: alert clinici (P0-4)
 
 I trigger di alert basati su trend clinici (febbre persistente su più giorni, vomito ripetuto, peggioramento generale delle condizioni) sono **bloccati**, in attesa di soglie cliniche concrete da cliente/nutrizionista (quante ore/giorni per "persistente", quanti episodi per "ripetuto", quali segnali definiscono "peggioramento generale"). Non implementare euristiche arbitrarie nel frattempo: gli alert attuali (`config/alerts`) restano single-reading (temperatura/dolore sopra soglia, sanguinamento/vomito singolo) finché non arrivano numeri reali da usare.

@@ -98,7 +98,7 @@ export default function ListaPazienti() {
       {/* L'elenco è l'unica parte che scorre nel pannello lista. */}
       <div className="px-4 py-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-3 lg:py-4">
         <h2 className="text-sm font-medium text-slate-400 mb-4 uppercase tracking-wider lg:mb-2.5 lg:text-[11px]">
-          Utenti in Triage ({pazientiFiltrati.length})
+          Pazienti in Triage ({pazientiFiltrati.length})
         </h2>
 
         {loading ? (
@@ -108,7 +108,14 @@ export default function ListaPazienti() {
         ) : pazienti.length === 0 ? (
           <div className="rounded-2xl border border-slate-800/60 bg-slate-900/50 p-8 text-center">
             <CheckCircle className="mx-auto mb-3 text-green-500/50" size={40} />
-            <p className="text-sm text-slate-400">Nessun utente trovato.</p>
+            {/*
+              "registrato", non "trovato": il ramo qui sotto — nessun risultato
+              per i filtri — usa già "Nessun paziente trovato". Prima le due
+              frasi si distinguevano solo perché una diceva "utente", quindi il
+              rename le avrebbe rese identiche per due situazioni opposte:
+              "non c'è nessun paziente" e "i filtri non selezionano nessuno".
+            */}
+            <p className="text-sm text-slate-400">Nessun paziente registrato.</p>
           </div>
         ) : pazientiFiltrati.length === 0 ? (
           <EmptyState

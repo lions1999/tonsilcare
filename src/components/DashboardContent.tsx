@@ -146,7 +146,7 @@ function UtenteStatusCard({
   const fase = faseDiStato(stato);
   return (
     <article
-      aria-label="Stato dell'utente operato"
+      aria-label="Stato del paziente operato"
       className="relative overflow-hidden rounded-2xl p-5 shadow-xl shadow-blue-950/50 animate-fade-in-up"
       style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 50%, #1e3a8a 100%)" }}
     >

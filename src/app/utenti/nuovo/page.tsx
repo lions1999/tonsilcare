@@ -75,7 +75,7 @@ function UtenteForm() {
     setError(null);
 
     if (!user) {
-      setError("Devi essere autenticato per aggiungere un utente.");
+      setError("Devi essere autenticato per aggiungere un paziente.");
       return;
     }
 
@@ -132,7 +132,14 @@ function UtenteForm() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-white">
-              {isPrimo ? "Aggiungi il tuo bambino" : "Nuovo utente"}
+              {/*
+                Due registri, ed è deliberato (vedi la regola in CLAUDE.md): al
+                primo accesso l'app parla al genitore del SUO figlio, dopo nomina
+                un'entità in un elenco. "Nuovo bambino" al ritorno suonerebbe
+                come se ne fosse nato un altro; "Aggiungi il tuo paziente" alla
+                prima frase che un genitore legge sarebbe freddo.
+              */}
+              {isPrimo ? "Aggiungi il tuo bambino" : "Nuovo paziente"}
             </h1>
             {isPrimo && (
               <p className="text-xs text-slate-400">
@@ -148,7 +155,7 @@ function UtenteForm() {
         onSubmit={handleSubmit}
         noValidate
         className="px-4 pb-10 space-y-5"
-        aria-label="Form aggiunta utente"
+        aria-label="Form aggiunta paziente"
       >
         {/* Errore */}
         {error && (
@@ -400,7 +407,7 @@ function UtenteForm() {
           {loading ? (
             <><Loader2 size={16} className="animate-spin" />Salvataggio…</>
           ) : (
-            isPrimo ? "Inizia il monitoraggio →" : "Salva utente"
+            isPrimo ? "Inizia il monitoraggio →" : "Salva paziente"
           )}
         </button>
       </form>

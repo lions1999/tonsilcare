@@ -156,7 +156,7 @@ export default function UtenteDettaglioMedico() {
   if (!utente) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center bg-slate-950 p-6 text-center">
-        <p className="text-slate-400 mb-4">Utente non trovato.</p>
+        <p className="text-slate-400 mb-4">Paziente non trovato.</p>
         <Link href="/studio" className="text-indigo-400 hover:underline">
           &larr; Torna alla Control Room
         </Link>
