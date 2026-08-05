@@ -748,12 +748,34 @@ premerlo per chiudere lo chiuderebbe e riaprirebbe nello stesso gesto.
 
 Cercato in tutto `src/`. Quattro occorrenze, **nessuna rotta oggi**, ma due meritano attenzione:
 
-| dove | cos'è | stato |
+| dove | cos'era | stato |
 |---|---|---|
-| `SearchAndFilterBar.tsx:192` | overlay di chiusura del filtro "Fase" | **funziona**, ma solo perché è dentro il `createPortal(…, document.body)` insieme al menu. È l'ultimo overlay del pattern sbagliato rimasto: togliere il portale lo rirompe in silenzio. Migrabile all'hook con due ref (bottone + menu), non fatto perché tocca un'arrangiamento di z-index e portale che oggi funziona. |
-| `diario/nuovo/page.tsx:577` | sfondo del modale di emergenza | **funziona**, ma per fortuna: è fratello di `<header>` e `<main>`, non discendente, e né `AppShell` né il layout hanno blur/transform. Un solo refactor che lo annidi in un contenitore con `backdrop-blur` lo sposterebbe, su un **modale clinico**. |
-| `(auth)/layout.tsx:15` | sfondo decorativo | non è un overlay di chiusura, ha `pointer-events-none` e nessun antenato che crei blocco contenitore. |
-| `UtenteSwitcher.tsx` | — | **rimosso** il 2026-08-06, sostituito dall'hook. |
+| `UtenteSwitcher` | overlay di chiusura | **rimosso**, sostituito dall'hook |
+| `SearchAndFilterBar` | overlay di chiusura del filtro "Fase" | **rimosso**, sostituito dall'hook con due ref |
+| `diario/nuovo/page.tsx:577` | sfondo del modale di emergenza | resta, e va bene — ma leggi l'avvertenza qui sotto |
+| `(auth)/layout.tsx:15` | sfondo decorativo | resta: `pointer-events-none`, nessun antenato che crei blocco contenitore |
+
+**Come overlay di chiusura non ne esiste più nemmeno uno, ed è il punto**: da oggi
+`grep -rn "fixed inset-0" src/` è esso stesso il controllo. Chi lo reintroduce sta scrivendo
+qualcosa che in questo repo non ha precedenti, e chi legge il codice non trova un esempio da
+imitare.
+
+`SearchAndFilterBar` era l'unico dei tre che **funzionasse davvero** — misurato 1440×900, cioè
+il viewport intero — ma per una ragione collaterale: stava dentro il portale insieme al menu,
+quindi non era discendente dell'header con `backdrop-blur`. Migrato lo stesso, perché chi tocca
+l'arrangiamento del portale lo rirompeva senza che nulla lo segnalasse. **Il portale resta**:
+serve a un problema diverso, il ritaglio (vedi la nota sull'`overflow-x-auto` più sotto), e
+quella funzione non è cambiata.
+
+⚠️ **Il modale di emergenza in `diario/nuovo` funziona per una condizione che nessuno sa di
+dover mantenere.** Non è dentro l'header: è **fratello** di `<header>` e `<main>`, figlio
+diretto della radice della pagina, e né `AppShell` né `app/layout.tsx` hanno `backdrop-blur`,
+`transform`, `filter`, `will-change`, `contain` o `perspective`. Basta una di quelle proprietà
+su un qualsiasi antenato — o annidarlo dentro l'header per comodità di JSX — perché il suo
+`fixed inset-0` smetta di coprire il viewport e si ancori a quel contenitore. Succederebbe in
+silenzio, come le altre tre volte, ma **su un modale clinico**: quello che dice a una famiglia
+di chiamare il pediatra. Se un giorno va spostato, va rimisurato — `getBoundingClientRect()`
+deve dare il viewport intero — oppure portato in un portale su `document.body`.
 
 Gli altri componenti con uno stato "aperto" non usano affatto il pattern e non sono a rischio:
 `FasePazienteCard` (form in linea), `info/page` (accordion), `BottoneLogout` (`<dialog>` nativo
@@ -762,7 +784,8 @@ con `showModal()`, quindi top layer, che il blocco contenitore non tocca).
 Il menu **in sé** può restare `absolute`: si ancora al primo antenato *posizionato*, che il
 blocco contenitore non tocca. Il portale di `SearchAndFilterBar` risolve un problema diverso —
 lì il menu veniva **ritagliato** da un `overflow` — e non va copiato dove quel problema non
-c'è.
+c'è. Le due cose sono ora separate anche nel codice: il portale per il ritaglio,
+`useChiusuraAlClickFuori` per la chiusura.
 
 **Qualunque dropdown, tooltip, popover o overlay che nasca dentro un header con
 `backdrop-blur` avrà lo stesso problema.** La soluzione usata è un portale su `document.body`

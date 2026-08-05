@@ -5,9 +5,10 @@
 
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Search, AlertTriangle, Sparkles, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { useChiusuraAlClickFuori } from "@/hooks/useChiusuraAlClickFuori";
 import type { PostOpPhase, PostOpPhaseConfig } from "@/types";
 
 export type QuickFilterType = "tutti" | "allerta" | "novita" | "fase";
@@ -63,9 +64,10 @@ export default function SearchAndFilterBar({
     Nemmeno `position: fixed` da solo basta: l'header ha `backdrop-blur-xl`, e
     `backdrop-filter` crea un blocco contenitore per i discendenti `fixed`. Il
     menu si ancorava all'header invece che al viewport e finiva a 264px di
-    distanza dal bottone. Vale anche per l'overlay `fixed inset-0` che chiude il
-    menu: confinato all'header, non copriva il resto della pagina. Il portale
-    toglie entrambi da sotto quell'ancoraggio.
+    distanza dal bottone. Il portale lo toglie da sotto quell'ancoraggio.
+
+    Il portale resta quindi per il RITAGLIO e per l'ancoraggio del menu, non
+    più per la chiusura: quella passa da `useChiusuraAlClickFuori` (vedi sotto).
 
     Lo stile viene scritto direttamente sull'elemento invece che via stato: è
     una misura di layout, e passare dallo stato aggiungerebbe un render a ogni
@@ -86,8 +88,8 @@ export default function SearchAndFilterBar({
       // Solo verso il basso: l'header è `sticky top-0`, quindi il bottone sta
       // sempre in cima allo schermo e un ramo "apri verso l'alto" non
       // scatterebbe mai. Quando lo spazio è poco il menu si accorcia e scorre
-      // al suo interno — verificato a 1440x320, dove si ferma a 167px e resta
-      // dentro il viewport.
+      // al suo interno — rimisurato il 2026-08-06 a 1440x320: si ferma a 102px
+      // (contro i 200px di contenuto) e resta dentro il viewport.
       menu.style.top = `${r.bottom + DISTANZA}px`;
       menu.style.maxHeight = `${Math.max(
         96,
@@ -114,6 +116,33 @@ export default function SearchAndFilterBar({
       window.removeEventListener("resize", posiziona);
     };
   }, [faseDropdownOpen, fasi.length]);
+
+  /*
+    Chiusura al click fuori.
+
+    Qui c'era un overlay `fixed inset-0`, l'unico dei tre del progetto che
+    funzionasse davvero — ma per una ragione collaterale: sta dentro il portale
+    insieme al menu, quindi non è discendente dell'header con `backdrop-blur` e
+    non ne subisce il blocco contenitore. Misurato prima di questa modifica,
+    1440×900, cioè il viewport intero. Chi tocca l'arrangiamento del portale
+    però lo rirompe senza che nulla lo segnali, e sarebbe la quarta volta.
+
+    Ora che non c'è più, "`fixed inset-0` come overlay di chiusura" non esiste
+    in nessun punto del repo: la ricerca stessa diventa il controllo — chi lo
+    reintroduce sta scrivendo qualcosa che non ha precedenti qui.
+
+    DUE ref e non uno: il menu è in un portale, quindi non ha il bottone come
+    antenato. Senza `bottoneFaseRef`, premere il bottone per chiudere farebbe
+    prima chiudere (pointerdown fuori dal menu) e poi riaprire (il click che
+    fa toggle), cioè il menu non si chiuderebbe mai dal suo stesso bottone.
+  */
+  const contenitori = useMemo(
+    () => [bottoneFaseRef, menuFaseRef],
+    []
+  );
+  useChiusuraAlClickFuori(faseDropdownOpen, contenitori, () =>
+    setFaseDropdownOpen(false)
+  );
 
   return (
     <div className="mt-3 space-y-2.5">
@@ -186,39 +215,32 @@ export default function SearchAndFilterBar({
           </button>
 
           {faseDropdownOpen && createPortal(
-            <>
-              <div
-                aria-hidden="true"
-                className="fixed inset-0 z-40"
-                onClick={() => setFaseDropdownOpen(false)}
-              />
-              <div
-                ref={menuFaseRef}
-                role="listbox"
-                aria-label="Filtra per fase post-operatoria"
-                className="fixed z-50 min-w-[220px] overflow-y-auto overscroll-contain rounded-xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/40"
-              >
-                {fasi.map((fase) => (
-                  <button
-                    key={fase.id}
-                    role="option"
-                    aria-selected={selectedFase === fase.id}
-                    onClick={() => {
-                      onFaseChange(fase.id);
-                      onFilterTypeChange("fase");
-                      setFaseDropdownOpen(false);
-                    }}
-                    className={`flex w-full items-center px-4 py-2.5 text-left text-sm transition-colors ${
-                      selectedFase === fase.id
-                        ? "bg-indigo-900/40 text-indigo-300"
-                        : "text-slate-200 hover:bg-slate-800"
-                    }`}
-                  >
-                    {fase.titolo}
-                  </button>
-                ))}
-              </div>
-            </>,
+            <div
+              ref={menuFaseRef}
+              role="listbox"
+              aria-label="Filtra per fase post-operatoria"
+              className="fixed z-50 min-w-[220px] overflow-y-auto overscroll-contain rounded-xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/40"
+            >
+              {fasi.map((fase) => (
+                <button
+                  key={fase.id}
+                  role="option"
+                  aria-selected={selectedFase === fase.id}
+                  onClick={() => {
+                    onFaseChange(fase.id);
+                    onFilterTypeChange("fase");
+                    setFaseDropdownOpen(false);
+                  }}
+                  className={`flex w-full items-center px-4 py-2.5 text-left text-sm transition-colors ${
+                    selectedFase === fase.id
+                      ? "bg-indigo-900/40 text-indigo-300"
+                      : "text-slate-200 hover:bg-slate-800"
+                  }`}
+                >
+                  {fase.titolo}
+                </button>
+              ))}
+            </div>,
             document.body
           )}
         </div>
