@@ -8,12 +8,26 @@
 
 import Link from "next/link";
 import { ChevronDown, Baby, PlusCircle } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useUtente } from "@/context/UtenteContext";
+import { useChiusuraAlClickFuori } from "@/hooks/useChiusuraAlClickFuori";
 
 export default function UtenteSwitcher() {
   const { utenti, activeUtente, setActiveUtente, loading } = useUtente();
   const [open, setOpen] = useState(false);
+  const contenitore = useRef<HTMLDivElement>(null);
+
+  /*
+    Chiusura al click fuori.
+
+    Qui c'era un overlay `fixed inset-0`, ed era rotto da sempre: misurato a
+    375×812, l'overlay era 375×**125** — grande quanto l'header della dashboard,
+    non quanto la pagina. Questo componente vive dentro un header con
+    `backdrop-blur`, che crea un blocco contenitore per i `fixed` discendenti.
+    Terza occorrenza dello stesso difetto nel progetto; l'hook esiste per non
+    farne una quarta.
+  */
+  useChiusuraAlClickFuori(open, contenitore, () => setOpen(false));
 
   // Durante il caricamento, mostra uno skeleton minimo
   if (loading) {
@@ -37,7 +51,7 @@ export default function UtenteSwitcher() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={contenitore}>
       {/* Trigger */}
       <button
         id="btn-utente-switcher"
@@ -63,13 +77,13 @@ export default function UtenteSwitcher() {
       </button>
 
       {/* Dropdown */}
+      {/*
+        `absolute` ed è corretto: si ancora al contenitore `relative` qui sopra,
+        cioè al primo antenato posizionato, che il blocco contenitore del
+        `backdrop-blur` non tocca. È solo il `fixed` a spostarsi.
+      */}
       {open && (
         <>
-          <div
-            aria-hidden="true"
-            className="fixed inset-0 z-40"
-            onClick={() => setOpen(false)}
-          />
           <div
             role="listbox"
             aria-label="Lista utenti"

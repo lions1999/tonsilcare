@@ -24,12 +24,13 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, User, ChevronDown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import BottoneLogout from "@/components/BottoneLogout";
 import { clearRispostaMedicoNonLetta } from "@/lib/firebase/firestore";
+import { useChiusuraAlClickFuori } from "@/hooks/useChiusuraAlClickFuori";
 import type { UserRole } from "@/types";
 
 interface UserMenuProps {
@@ -62,27 +63,17 @@ export default function UserMenu({
   /*
     Chiusura al click fuori.
 
-    Qui c'era un overlay `fixed inset-0` che intercettava il click. Non
-    funzionava: questo menu vive dentro header con `backdrop-blur`, e
-    `backdrop-filter` crea un blocco contenitore per i discendenti `fixed`,
-    quindi l'overlay copriva l'header invece della pagina (stesso difetto del
-    menu "Fase" in SearchAndFilterBar, vedi CLAUDE.md). Era rotto da prima che
-    il menu arrivasse nella barra: l'header della dashboard ha lo stesso blur.
+    Qui c'era un overlay `fixed inset-0` che intercettava il click, e non
+    funzionava: misurato 390×125 invece di 390×844, perché questo menu vive
+    dentro header con `backdrop-blur`. Il perché e le tre occorrenze stanno in
+    `useChiusuraAlClickFuori`, che è nato da questa correzione: era rimasta
+    scritta solo in CLAUDE.md, e il bug si è ripresentato lo stesso in
+    `UtenteSwitcher`.
 
-    Il menu in sé resta `absolute` ed è corretto così — un elemento assoluto si
-    ancora al primo antenato posizionato, che è il contenitore qui sotto, e non
-    è toccato dal blocco contenitore. Il listener su document evita di doverlo
-    portare in un portale e riposizionare a mano.
+    Il menu in sé resta `absolute` ed è corretto così — si ancora al contenitore
+    qui sotto, che il blocco contenitore non tocca.
   */
-  useEffect(() => {
-    if (!open) return;
-
-    const chiudiSeFuori = (e: PointerEvent) => {
-      if (!contenitore.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", chiudiSeFuori);
-    return () => document.removeEventListener("pointerdown", chiudiSeFuori);
-  }, [open]);
+  useChiusuraAlClickFuori(open, contenitore, () => setOpen(false));
 
   if (!user) return null;
 

@@ -593,8 +593,9 @@ l'unico ingresso. Oggi il componente sta in fondo a destra nella barra, per entr
 `fixed inset-0` che **non ha mai funzionato**, nemmeno su mobile. `UserMenu` vive dentro header
 con `backdrop-blur`, e vale la sezione qui sotto: misurato prima della modifica, l'overlay era
 390×**125** invece di 390×844, cioè grande quanto l'header della dashboard, e cliccare sul
-contenuto non chiudeva niente. Ora la chiusura è un listener `pointerdown` su `document` con
-controllo del ref. Il menu in sé resta `absolute` ed è corretto: un elemento assoluto si ancora
+contenuto non chiudeva niente. Ora la chiusura passa da `useChiusuraAlClickFuori` (dal
+2026-08-06; prima era lo stesso listener scritto a mano qui dentro). Il menu in sé resta
+`absolute` ed è corretto: un elemento assoluto si ancora
 al primo antenato **posizionato**, che non è toccato dal blocco contenitore — il portale come
 in `SearchAndFilterBar` serviva lì perché il menu veniva *ritagliato* da un `overflow`, che qui
 non succede.
@@ -636,25 +637,49 @@ Cosa è costato finora, in `SearchAndFilterBar.tsx`:
 
 ### Regola: niente overlay `fixed inset-0` per chiudere un dropdown
 
-**Questo pattern ha già fallito due volte, sempre allo stesso modo, e in entrambi i casi era
-rotto dal primo giorno senza che nessuno se ne accorgesse:**
+**Questo pattern ha già fallito tre volte, sempre allo stesso modo, e ogni volta era rotto dal
+primo giorno senza che nessuno se ne accorgesse:**
 
 | dove | overlay misurato | doveva essere | scoperto |
 |---|---|---|---|
 | `SearchAndFilterBar` (filtro "Fase") | solo l'header | il viewport | 2026-08-03 |
 | `UserMenu` (menu account) | 390×**125** | 390×844 | 2026-08-05 |
+| `UtenteSwitcher` (selettore paziente) | 375×**125** | 375×812 | 2026-08-06 |
 
-Due volte non è sfortuna, è il pattern sbagliato per questo progetto: **ogni header qui ha
+Tre volte non è sfortuna, è il pattern sbagliato per questo progetto: **ogni header qui ha
 `backdrop-blur`**, quindi qualunque `fixed` che ci nasca dentro si ancora all'header. E il
 fallimento è silenzioso nel modo peggiore — il menu si apre, si usa, si chiude dal bottone:
 manca solo il click fuori, che nessuno verifica di proposito. In `UserMenu` è sopravvissuto
 per mesi in produzione.
 
-**Quindi: la chiusura al click fuori si fa con un listener `pointerdown` su `document` che
-controlla `ref.contains(e.target)`**, come in `src/components/UserMenu.tsx`. Non dipende dal
-contesto di impilamento, non ha z-index da bilanciare, e funziona ovunque il componente venga
-spostato. Da preferire anche fuori dagli header: il prossimo dropdown potrebbe finirci dentro
-per un refactor, e allora si romperebbe senza che nessuno tocchi quel file.
+**La terza volta è la ragione per cui esiste `src/hooks/useChiusuraAlClickFuori.ts`.** Quando
+si è ripresentata, questa regola era già scritta qui da tre giorni: il bug è stato trovato
+**misurando per altro** — spostando lo switcher accanto al nome del genitore — non rileggendo
+la documentazione. La conclusione è che una regola scritta non basta se il modo sbagliato resta
+più facile da scrivere di quello giusto. L'hook rende il modo giusto un import.
+
+**Quindi: la chiusura al click fuori si fa con `useChiusuraAlClickFuori(aperto, ref, onChiudi)`**
+(usato da `UserMenu` e `UtenteSwitcher`). Non dipende dal contesto di impilamento, non ha
+z-index da bilanciare, e funziona ovunque il componente venga spostato. Da preferire anche fuori
+dagli header: il prossimo dropdown potrebbe finirci dentro per un refactor, e allora si
+romperebbe senza che nessuno tocchi quel file. L'hook accetta **più ref** proprio per il caso in
+cui trigger e menu non condividano un antenato (menu in un portale): senza il ref del bottone,
+premerlo per chiudere lo chiuderebbe e riaprirebbe nello stesso gesto.
+
+### Censimento al 2026-08-06: dove sta ancora `fixed inset-0`
+
+Cercato in tutto `src/`. Quattro occorrenze, **nessuna rotta oggi**, ma due meritano attenzione:
+
+| dove | cos'è | stato |
+|---|---|---|
+| `SearchAndFilterBar.tsx:192` | overlay di chiusura del filtro "Fase" | **funziona**, ma solo perché è dentro il `createPortal(…, document.body)` insieme al menu. È l'ultimo overlay del pattern sbagliato rimasto: togliere il portale lo rirompe in silenzio. Migrabile all'hook con due ref (bottone + menu), non fatto perché tocca un'arrangiamento di z-index e portale che oggi funziona. |
+| `diario/nuovo/page.tsx:577` | sfondo del modale di emergenza | **funziona**, ma per fortuna: è fratello di `<header>` e `<main>`, non discendente, e né `AppShell` né il layout hanno blur/transform. Un solo refactor che lo annidi in un contenitore con `backdrop-blur` lo sposterebbe, su un **modale clinico**. |
+| `(auth)/layout.tsx:15` | sfondo decorativo | non è un overlay di chiusura, ha `pointer-events-none` e nessun antenato che crei blocco contenitore. |
+| `UtenteSwitcher.tsx` | — | **rimosso** il 2026-08-06, sostituito dall'hook. |
+
+Gli altri componenti con uno stato "aperto" non usano affatto il pattern e non sono a rischio:
+`FasePazienteCard` (form in linea), `info/page` (accordion), `BottoneLogout` (`<dialog>` nativo
+con `showModal()`, quindi top layer, che il blocco contenitore non tocca).
 
 Il menu **in sé** può restare `absolute`: si ancora al primo antenato *posizionato*, che il
 blocco contenitore non tocca. Il portale di `SearchAndFilterBar` risolve un problema diverso —
