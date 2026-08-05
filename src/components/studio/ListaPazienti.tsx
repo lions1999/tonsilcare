@@ -16,6 +16,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useStudioPazienti } from "@/context/StudioPazientiContext";
 import PazienteCard from "@/components/studio/PazienteCard";
 import SearchAndFilterBar from "@/components/studio/SearchAndFilterBar";
+import AvvisoTriageDisattivato from "@/components/studio/AvvisoTriageDisattivato";
 import EmptyState from "@/components/EmptyState";
 
 export default function ListaPazienti() {
@@ -40,6 +41,7 @@ export default function ListaPazienti() {
     setSelectedFase,
     resetFilters,
     fasi,
+    configAlertMancante,
   } = useStudioPazienti();
 
   return (
@@ -74,9 +76,25 @@ export default function ListaPazienti() {
           onFaseChange={setSelectedFase}
           fasi={fasi}
         />
+
+        {/*
+          Nell'header, non nell'elenco: qui è la parte che NON scorre, mentre
+          l'elenco sì. Un avviso che scorre via viene letto una volta, e
+          l'inferenza sbagliata — "non ci sono righe rosse, stanno tutti bene" —
+          si forma proprio mentre si scorre. Costa spazio verticale in un
+          pannello da 420px, ma solo in un ambiente rotto, dove quel costo è
+          esattamente il punto.
+
+          L'header ha `backdrop-blur-xl`: nessun rischio dalla sezione nota su
+          `position: fixed`, perché questo avviso è statico e non contiene
+          elementi fissi.
+        */}
+        {configAlertMancante && (
+          <AvvisoTriageDisattivato contesto="lista" className="mt-3" />
+        )}
       </header>
 
-      {/* Lista Utenti */}
+      {/* Lista pazienti */}
       {/* L'elenco è l'unica parte che scorre nel pannello lista. */}
       <div className="px-4 py-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-3 lg:py-4">
         <h2 className="text-sm font-medium text-slate-400 mb-4 uppercase tracking-wider lg:mb-2.5 lg:text-[11px]">

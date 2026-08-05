@@ -40,7 +40,12 @@ import { calcolaStatoFase, faseDiStato } from "@/lib/utils/fase";
 import { useFasi } from "@/hooks/useFasi";
 import type { UtenteWithStatus } from "@/components/studio/PazienteCard";
 import type { QuickFilterType } from "@/components/studio/SearchAndFilterBar";
-import type { PostOpPhase, PostOpPhaseConfig, UtenteProfile } from "@/types";
+import type {
+  MedicalAlerts,
+  PostOpPhase,
+  PostOpPhaseConfig,
+  UtenteProfile,
+} from "@/types";
 
 // ---------------------------------------------------------------------------
 // Tipo del context
@@ -60,6 +65,34 @@ interface StudioPazientiContextValue {
    * offrire una fase che non esiste più o nasconderne una nuova.
    */
   fasi: PostOpPhaseConfig[];
+
+  /**
+   * Le soglie cliniche, o `null` se non sono disponibili. Esposte perché la
+   * scheda paziente le usa per evidenziare i singoli log: prima se le rileggeva
+   * da sé con una `getMedicalAlerts()` propria, cioè due letture della stessa
+   * configurazione e due valori che potevano divergere.
+   */
+  configAlert: MedicalAlerts | null;
+
+  /**
+   * True quando il triage è spento perché mancano le soglie. È la condizione da
+   * mostrare al medico: senza `/config/alerts`, `valutaAlertFinestra` non
+   * produce nessun motivo e `hasAlert` è false per ogni paziente a prescindere
+   * dai valori — nessuna riga rossa, filtro "Con allerta" sempre vuoto, e
+   * niente che lo dica.
+   *
+   * Derivato, non memorizzato, e con `loading` dentro alla condizione: `loading`
+   * parte da `true` e la configurazione arriva nello STESSO `Promise.all` dei
+   * pazienti, quindi non esiste un render in cui questo flag sia vero prima che
+   * la lista sia pronta. Il lampeggio è impossibile per costruzione, non evitato
+   * con un ritardo.
+   *
+   * Ci ricade anche il fallimento di lettura (rete, permessi): la causa tecnica
+   * è diversa ma per il medico la conseguenza è identica — nessuna soglia
+   * applicata, nessuna riga rossa possibile — ed è quella che l'avviso deve
+   * smentire. Il motivo preciso resta in console.
+   */
+  configAlertMancante: boolean;
 
   searchQuery: string;
   setSearchQuery: (v: string) => void;
@@ -101,6 +134,7 @@ const StudioPazientiContext = createContext<
 
 export function StudioPazientiProvider({ children }: { children: ReactNode }) {
   const [pazienti, setPazienti] = useState<UtenteWithStatus[]>([]);
+  const [configAlert, setConfigAlert] = useState<MedicalAlerts | null>(null);
   const [loading, setLoading] = useState(true);
   const { fasi, loading: fasiLoading } = useFasi();
 
@@ -157,7 +191,14 @@ export function StudioPazientiProvider({ children }: { children: ReactNode }) {
           return recency(b) - recency(a);
         });
 
-        if (!annullato) setPazienti(conStato);
+        if (!annullato) {
+          setPazienti(conStato);
+          // Stessa continuazione asincrona di `setLoading(false)`, quindi stesso
+          // commit: la lista e l'eventuale avviso "triage disattivato" compaiono
+          // insieme. Nessuna lettura in più — `alertsConfig` è già stato letto
+          // dal Promise.all qui sopra.
+          setConfigAlert(alertsConfig);
+        }
       } catch (error) {
         console.error("Errore nel caricamento della Control Room", error);
       } finally {
@@ -219,12 +260,18 @@ export function StudioPazientiProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const caricamento = loading || fasiLoading;
+
   const value = useMemo<StudioPazientiContextValue>(
     () => ({
       pazienti,
       pazientiFiltrati,
-      loading: loading || fasiLoading,
+      loading: caricamento,
       fasi,
+      configAlert,
+      // Vedi il commento sul campo nel tipo: `caricamento` dentro la condizione
+      // è ciò che rende impossibile mostrarlo prima che la lista sia pronta.
+      configAlertMancante: !caricamento && configAlert === null,
       searchQuery,
       setSearchQuery,
       filterType,
@@ -238,9 +285,9 @@ export function StudioPazientiProvider({ children }: { children: ReactNode }) {
     [
       pazienti,
       pazientiFiltrati,
-      loading,
-      fasiLoading,
+      caricamento,
       fasi,
+      configAlert,
       searchQuery,
       filterType,
       selectedFase,

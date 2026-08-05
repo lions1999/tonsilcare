@@ -38,26 +38,43 @@ import {
   getPrescrizioni,
   clearNuovoLogNonLetto,
   markRispostaMedicoNonLetta,
-  getMedicalAlerts,
 } from "@/lib/firebase/firestore";
 import { calcolaEta, calcolaBMI } from "@/lib/utils/paziente";
 import { parseDataLocale } from "@/lib/utils/date";
 import { valutaAlertLog } from "@/lib/utils/alert";
 import FasePazienteCard from "@/components/studio/FasePazienteCard";
+import AvvisoTriageDisattivato from "@/components/studio/AvvisoTriageDisattivato";
 import { TIPI_INTERVENTO } from "@/lib/validations/utente";
-import type { UtenteProfile, Prescrizione, MedicalAlerts } from "@/types";
+import type { UtenteProfile, Prescrizione } from "@/types";
 import type { DailyLog } from "@/lib/validations/diary";
 
 export default function UtenteDettaglioMedico() {
   const { id } = useParams<{ id: string }>();
   const { user, accountProfile } = useAuth();
-  const { segnaLetto, fasi, aggiornaPaziente } = useStudioPazienti();
-  
+  /*
+    Le soglie arrivano da qui e non da una `getMedicalAlerts()` di questa pagina:
+    erano due letture della stessa configurazione, quindi due valori che potevano
+    divergere — la famiglia di problemi che questo repo produce di continuo (le
+    fasi in tre posti, i fallback hardcoded lato genitore).
+
+    Il provider sta nel layout di /studio, quindi c'è anche su mobile, dove la
+    lista è nascosta da una classe CSS ma resta montata. Se un giorno questa
+    pagina finisse fuori dal provider, `useStudioPazienti` lancia un errore con
+    un messaggio esplicito invece di propagare `undefined` — vale già oggi per
+    `segnaLetto` e `fasi`, qui sotto.
+  */
+  const {
+    segnaLetto,
+    fasi,
+    aggiornaPaziente,
+    configAlert,
+    configAlertMancante,
+  } = useStudioPazienti();
+
   const [loading, setLoading] = useState(true);
   const [utente, setUtente] = useState<UtenteProfile | null>(null);
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [prescrizioni, setPrescrizioni] = useState<Prescrizione[]>([]);
-  const [alertsConfig, setAlertsConfig] = useState<MedicalAlerts | null>(null);
 
   // Form Prescrizione
   const [nuovaPrescrizione, setNuovaPrescrizione] = useState("");
@@ -98,12 +115,6 @@ export default function UtenteDettaglioMedico() {
     }
     loadData();
   }, [id, segnaLetto]);
-
-  // Caricamento soglie mediche, per allinearsi alle stesse soglie dinamiche
-  // già usate in Control Room (studio/page.tsx) invece di valori hardcoded.
-  useEffect(() => {
-    getMedicalAlerts().then(setAlertsConfig).catch(console.error);
-  }, []);
 
   const handleInvioPrescrizione = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -172,6 +183,27 @@ export default function UtenteDettaglioMedico() {
           </div>
         </div>
       </header>
+
+      {/*
+        `lg:hidden`, e non un controllo sulla larghezza in JavaScript: su desktop
+        la lista è affiancata e mostra già lo stesso avviso, quindi due copie
+        sarebbero solo rumore. Sotto `lg` la lista è nascosta (StudioShell) e
+        questa è l'unica schermata in cui il medico legge log clinici senza
+        averla accanto — cioè dove l'inferenza "nessuna icona rossa, tutto
+        normale" è più facile da fare. Stesso idioma di UserMenu: due montaggi
+        che si escludono per breakpoint.
+
+        Fuori da <main> di proposito: lì `space-y-8` dà il margine con
+        `> * + *`, e un figlio nascosto da `lg:hidden` resta un fratello — su
+        desktop avrebbe aggiunto 32px di vuoto in cima al pannello ogni volta che
+        la configurazione manca.
+      */}
+      {configAlertMancante && (
+        <AvvisoTriageDisattivato
+          contesto="scheda"
+          className="mx-4 mt-6 lg:hidden"
+        />
+      )}
 
       <main className="px-4 py-6 space-y-8">
 
@@ -277,7 +309,7 @@ export default function UtenteDettaglioMedico() {
                 // /config/alerts non viene evidenziato niente, esattamente come
                 // in Control Room, invece di applicare soglie che nessuno ha
                 // configurato.
-                const motivi = valutaAlertLog(log, alertsConfig);
+                const motivi = valutaAlertLog(log, configAlert);
                 const fuoriSoglia = (tipo: "temperatura" | "dolore") =>
                   motivi.some((m) => m.tipo === tipo);
 

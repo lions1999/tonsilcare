@@ -198,12 +198,50 @@ export async function deleteUtente(utenteId: string): Promise<void> {
 
 /**
  * Recupera le soglie di alert medico da /config/alerts.
- * Restituisce null se il documento non è ancora stato creato su Firestore.
+ * Restituisce null se il documento non esiste, o se esiste ma le soglie non
+ * sono utilizzabili.
+ *
+ * Perché "inutilizzabile" viene trattato come "assente": qui prima si faceva
+ * `snap.data() as MedicalAlerts`, un cast senza controlli. Con `temperaturaMaxC`
+ * mancante, `log.temperatura >= undefined` è `false` SEMPRE — le allerte di
+ * temperatura sparivano in silenzio mentre quelle di dolore continuavano a
+ * funzionare, cioè una lista che sembra viva mentre metà del triage è spento.
+ * Restituendo null quella silenziosità parziale e muta diventa totale e
+ * annunciata: la Control Room mostra l'avviso "triage disattivato".
+ *
+ * Si controllano solo i due campi che le soglie usano davvero.
+ * `messaggioEmergenza` NON è validato di proposito: è testo per il banner del
+ * genitore, non una soglia, e spegnere il triage del medico per una stringa che
+ * il medico non vede sarebbe sproporzionato.
+ *
+ * Nessun client può produrre questo stato — /config è `write: if false` — ma
+ * una modifica da Console o Admin SDK sì.
  */
 export async function getMedicalAlerts(): Promise<MedicalAlerts | null> {
   const snap = await getDoc(doc(db, "config", "alerts"));
   if (!snap.exists()) return null;
-  return snap.data() as MedicalAlerts;
+
+  const dati = snap.data();
+  const sogliaInutilizzabile = (valore: unknown) =>
+    typeof valore !== "number" || !Number.isFinite(valore);
+
+  const campiNonValidi = (["temperaturaMaxC", "doloreSoglia"] as const).filter(
+    (campo) => sogliaInutilizzabile(dati[campo])
+  );
+
+  if (campiNonValidi.length > 0) {
+    console.error(
+      "[getMedicalAlerts] /config/alerts esiste ma non è utilizzabile: " +
+        `${campiNonValidi.join(", ")} ` +
+        `${campiNonValidi.length > 1 ? "non sono numeri validi" : "non è un numero valido"}. ` +
+        "Il triage resta disattivato finché non viene corretto " +
+        "(`node scripts/seed.mjs`).",
+      dati
+    );
+    return null;
+  }
+
+  return dati as MedicalAlerts;
 }
 
 /**

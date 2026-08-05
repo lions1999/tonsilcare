@@ -274,6 +274,14 @@ in attesa di tempo ma **di una decisione clinica del cliente**.
   allarme a schermo. Va posto insieme alle soglie sui trend e alla domanda per il nutrizionista,
   non risolto di passaggio. Nota che scatta anche con `?? 38.5` scritto a mano, quindi in un
   ambiente senza `/config/alerts` allarma con una soglia che nessuno ha configurato.
+- **Un `messaggioEmergenza` mancante svuota il banner del genitore senza che si veda**
+  (scoperto il 2026-08-06 validando le soglie). Misurato: il banner **non** sparisce, resta con
+  il titolo "Temperatura max: 38.5 °C" e un secondo paragrafo di altezza **zero** — si presenta
+  come un banner completo e intenzionale mentre le istruzioni su cosa fare in emergenza non ci
+  sono. Non è coperto dalla validazione di `getMedicalAlerts`, e di proposito: è testo per il
+  genitore, non una soglia, e invalidare tutta la configurazione spegnerebbe il triage del
+  medico per una stringa che il medico non vede. Piccolo, ma da risolvere dove vive il banner
+  (`AlertBanner` in `DashboardContent.tsx`), non nella lettura.
 
 **Corretto il 2026-08-05: `VitalsQuickCard`.** I due riquadri "Temp." e "Dolore" della
 dashboard genitore confrontavano con `38` e `7` letterali, ignorando `/config/alerts` che la
@@ -369,62 +377,130 @@ un'unione di cinque id e non si aggiorna da solo togliendo una fase dai dati.
 
 ### Se `/config/alerts` manca: il lato medico tace, il lato genitore finge (2026-08-04)
 
-Da oggi non è più lo stato di nessuno dei due ambienti, ma resta vero per qualsiasi progetto
-nuovo — ed è il motivo per cui l'avviso qui sotto va comunque fatto.
+Non è più lo stato di nessuno dei due ambienti, ma resta vero per qualsiasi progetto nuovo. Dal
+2026-08-06 **il silenzio lato medico è annunciato** (vedi la sezione sull'avviso qui sotto); il
+meccanismo sottostante è invariato, ed è questo:
 
 `getMedicalAlerts()` restituisce `null`, e da lì le due metà dell'app si comportano in modo
 opposto:
 
-- **Medico — nessun alert, mai, e niente lo dice.** `valutaAlertLog` con `config` a `null`
-  restituisce zero motivi, quindi `hasAlert` è `false` per ogni paziente a prescindere dai
-  valori: nessuna riga rossa in Control Room, filtro "Con allerta" sempre vuoto, nessuna icona
-  sui log nella scheda paziente. Non c'è un errore a schermo né un warning in console. Il
-  medico non vede un sistema degradato, vede un reparto in cui **sta bene tutto**.
+- **Medico — nessun alert, mai.** `valutaAlertLog` con `config` a `null` restituisce zero
+  motivi, quindi `hasAlert` è `false` per ogni paziente a prescindere dai valori: nessuna riga
+  rossa in Control Room, filtro "Con allerta" sempre vuoto, nessuna icona sui log nella scheda
+  paziente. **Il comportamento è ancora questo — cambia solo che ora c'è un avviso a schermo
+  che lo dichiara.** Senza, il medico non vedeva un sistema degradato: vedeva un reparto in cui
+  sta bene tutto.
 - **Genitore — l'app sembra funzionare.** `DashboardContent` ha `DEFAULT_ALERTS`, quindi il
-  banner continua ad annunciare "Temperatura max: 38.5 °C" col messaggio di emergenza; il
-  modale di emergenza in `diario/nuovo` scatta lo stesso (`?? 38.5` scritto a mano) e
-  `VitalsQuickCard` continua a colorare con 38 e 7.
+  banner continua ad annunciare "Temperatura max: 38.5 °C" col messaggio di emergenza, e il
+  modale di emergenza in `diario/nuovo` scatta lo stesso (`?? 38.5` scritto a mano).
+  `VitalsQuickCard` **non** rientra più in questo elenco dal 2026-08-05: senza configurazione
+  resta neutra.
 
-L'asimmetria è la parte pericolosa: i fallback hardcoded lato genitore — già in lista come bug
-a sé — **nascondono l'assenza della configurazione** proprio sulla schermata dove salterebbe
-all'occhio, mentre la schermata che dovrebbe agire non riceve niente.
+L'asimmetria è la parte pericolosa: i fallback hardcoded rimasti lato genitore — già in lista
+come bug a sé — **nascondono l'assenza della configurazione** proprio sulle schermate dove
+salterebbe all'occhio.
 
 Nota storica: fino al 2026-08-04 la scheda paziente degradava invece di tacere, perché aveva i
 suoi `?? 38.5` e `?? 7`. Sono stati tolti di proposito insieme all'unificazione delle
 condizioni di allerta — applicare soglie che nessuno ha configurato è un modo diverso di
-mentire — ma il risultato è che oggi il silenzio lato medico è totale.
+mentire. Il silenzio lato medico è quindi totale, ed è esattamente perché lo è che dal
+2026-08-06 viene **dichiarato a schermo**.
 
-### Deciso, da fare: un avviso in Control Room quando `/config/alerts` manca
+### Fatto il 2026-08-06: l'avviso "triage disattivato" lato medico
 
-**Scelta fatta il 2026-08-04, non ancora implementata.** Scartato il `console.warn` alla
-`useFasi`: nessun medico apre la console, e qui il fallimento non è un degrado ma un silenzio
-totale su un sistema di allarme clinico. L'avviso va **nell'interfaccia**, in cima alla lista
-della Control Room.
+`src/components/studio/AvvisoTriageDisattivato.tsx`, montato in due punti che **si escludono
+per breakpoint**: nell'header di `ListaPazienti` (sempre) e in cima a `/studio/utente/[id]` con
+`lg:hidden`. Scartato il `console.warn` alla `useFasi`: nessun medico apre la console, e qui il
+fallimento non è un degrado ma un silenzio totale su un sistema di allarme clinico.
 
-Requisiti, perché non venga implementato come un banner qualunque:
+Requisiti rispettati, da non erodere in un refactor:
 
-- **Non chiudibile.** Un avviso che dice "gli allarmi sono spenti" e che si può far sparire
-  con una X viene chiuso una volta e non rivisto più, proprio mentre la condizione persiste.
-- **Deve smentire l'inferenza sbagliata, non solo segnalare un errore tecnico.** Il rischio
-  non è che il medico non sappia di una configurazione mancante: è che legga una lista senza
-  righe rosse e concluda che stanno tutti bene.
-- Formulazione proposta, da rivedere col medico ma non da annacquare:
+- **Non chiudibile.** Nessuna X, nessun `onClose`, nessuno stato interno: non c'è niente da
+  chiudere. Un avviso che dice "gli allarmi sono spenti" e si può far sparire viene chiuso una
+  volta e non rivisto più, proprio mentre la condizione persiste. Misurato: zero
+  `button`/`a`/`input` dentro l'elemento.
+- **Il testo smentisce un'inferenza, non segnala un errore tecnico.** Il rischio non è che il
+  medico non sappia di una configurazione mancante: è che legga una lista senza righe rosse e
+  concluda che stanno tutti bene. Per questo la terza frase nomina ciò che il medico sta
+  guardando. Non annacquarla in un generico "errore di configurazione".
+- **Solo lato medico.** Le schermate del genitore hanno i loro fallback hardcoded: sono un bug
+  a sé e vanno affrontate lì, non con un avviso che al genitore direbbe qualcosa che non può
+  risolvere.
+- **Nell'header della lista, non nell'elenco.** L'header non scorre. Un avviso che scorre via
+  viene letto una volta, e l'inferenza sbagliata si forma proprio mentre si scorre. Costa 100px
+  in un pannello da 420px, ma solo in un ambiente rotto — dove quel costo è il punto.
 
-  > **Soglie di allerta non configurate — il triage è disattivato.**
-  > Nessun paziente può risultare in allerta finché manca la configurazione clinica.
-  > L'assenza di segnalazioni in questa lista **non** significa che i parametri siano nella
-  > norma: apri le singole schede e avvisa chi gestisce l'ambiente.
+**La copia sulla scheda ha la terza frase diversa, ed è deliberato.** La formulazione concordata
+è scritta per la lista: "apri le singole schede" detto a chi ha già una scheda aperta gli dice
+di fare ciò che sta già facendo, cioè rende l'avviso ignorabile proprio dove serve di più.
+Titolo e seconda riga sono **identici** nelle due varianti: sono quelli che portano il
+significato. Il testo sta tutto nella costante `TESTO` di quel file, non sparso nei due punti
+di montaggio.
 
-- **Solo lato medico.** Le schermate del genitore hanno i loro fallback hardcoded e continuano
-  a mostrare numeri: sono già in lista come bug a sé, e vanno affrontate lì, non con un avviso
-  che al genitore direbbe qualcosa che non può risolvere.
-- Nota implementativa: oggi il `null` di `getMedicalAlerts()` viene inghiottito dentro
-  `StudioPazientiContext`, che lo traduce silenziosamente in "nessun motivo di allerta". Serve
-  esporlo come stato (`configMancante`) perché la lista possa mostrarne qualcosa.
+Perché anche sulla scheda: su desktop la lista è affiancata e l'avviso si vede comunque, ma
+**sotto `lg` la lista è nascosta** e la scheda diventa l'unico posto dell'app in cui il medico
+legge log clinici senza averla accanto. La scelta di quale copia mostrare è **solo CSS**
+(`lg:hidden`), mai `matchMedia`: stesso idioma di `UserMenu`. Verificato a 375, 1014 e 1440 —
+esattamente un avviso visibile in ogni combinazione.
 
-L'avviso resta da fare **anche ora che produzione è popolata**: protegge il prossimo ambiente,
-e protegge questo se qualcuno cancella il documento. Non è stato declassato dal seed — quello
-ha tolto la condizione, non il fatto che quando si presenta nessuno se ne accorge.
+Due dettagli che non si deducono leggendo il codice:
+
+- **L'avviso della scheda sta FUORI da `<main>`.** Lì `space-y-8` dà i margini con `> * + *`, e
+  un figlio nascosto da `lg:hidden` resta un fratello: dentro, su desktop, avrebbe aggiunto
+  32px di vuoto in cima al pannello ogni volta che la configurazione manca.
+- **`configAlertMancante` è derivato, non memorizzato**: `!caricamento && configAlert === null`.
+  `caricamento` parte da `true` e la configurazione arriva nello **stesso `Promise.all`** dei
+  pazienti, quindi non esiste un render in cui l'avviso preceda la lista — il lampeggio è
+  impossibile per costruzione, non evitato con un ritardo. Misurato con un `MutationObserver`
+  armato prima della navigazione: avviso e prima card compaiono allo stesso millisecondo. **Non
+  "sistemarlo" scomponendo la lettura in un `useEffect` a sé**: sarebbe esattamente il difetto
+  di `VitalsQuickCard` (vedi la sezione sul primo render neutro), qui su un avviso di sicurezza.
+
+**Ci ricade anche il fallimento di lettura** (rete, permessi), non solo il documento assente: la
+causa tecnica è diversa ma la conseguenza per il medico è identica — nessuna soglia applicata,
+nessuna riga rossa possibile — ed è quella che l'avviso deve smentire. Il motivo preciso resta
+in console.
+
+La scheda paziente **non rilegge più le soglie da sé**: `getMedicalAlerts()` era chiamata anche
+lì, cioè due letture della stessa configurazione e due valori che potevano divergere. Ora
+`configAlert` arriva dal context. Se quella pagina finisse fuori dal provider, `useStudioPazienti`
+lancia già un errore con messaggio esplicito invece di propagare `undefined` — vale da prima,
+perché usa `segnaLetto` e `fasi` dallo stesso hook.
+
+### `getMedicalAlerts` valida le soglie: inutilizzabile = assente (2026-08-06)
+
+Faceva `snap.data() as MedicalAlerts`, un cast senza controlli. Con `temperaturaMaxC` mancante,
+`log.temperatura >= undefined` è `false` **sempre**: le allerte di temperatura sparivano in
+silenzio mentre quelle di dolore continuavano a funzionare — una lista che *sembra viva* mentre
+metà del triage è spento, cioè peggio dell'assenza totale. Ora una configurazione con soglie non
+numeriche restituisce `null` più un `console.error` che nomina i campi colpevoli, e ricade
+nell'avviso qui sopra: una silenziosità parziale e muta diventa totale e annunciata.
+
+Nessun client può produrre quello stato (`/config` è `write: if false`), ma una modifica da
+Console o Admin SDK sì.
+
+**`messaggioEmergenza` non è validato, di proposito**: è testo per il banner del genitore, non
+una soglia, e spegnere il triage del medico per una stringa che il medico non vede sarebbe
+sproporzionato. Cosa succede davvero se manca, misurato e non dedotto: il banner del genitore
+**non sparisce** — resta con il titolo "Temperatura max: 38.5 °C" e un secondo paragrafo di
+altezza **zero**, quindi si presenta come un banner completo e intenzionale mentre le istruzioni
+su cosa fare in emergenza non ci sono. Niente lo segnala. È un debito aperto a sé, minore ma non
+innocuo proprio perché invisibile.
+
+### Come simulare l'assenza senza cancellare `/config/alerts`
+
+Il documento **esiste su entrambi gli ambienti**, e cancellarlo per provare non è un'opzione.
+Il modo usato: modifica locale temporanea del **solo id del documento** in `getMedicalAlerts` —
+`"alerts"` → `"alerts-non-esiste"`. Esercita il percorso vero da capo a fondo (lettura Firestore
+reale, `!snap.exists()` reale, stato del context reale) senza scrivere né cancellare niente:
+leggere un documento inesistente è una lettura, e `/config/{docId}` è leggibile da qualunque
+autenticato. Per il caso **malformato**, stessa tecnica puntata su un documento che esiste ma ha
+la forma sbagliata: `doc(db, "fasi", "fase_1")`. Zero scritture, zero residui su dev.
+
+⚠️ **Quella riga serve anche il lato genitore.** Un residuo non ripristinato spegne le soglie
+ovunque, non solo in Control Room. Il ripristino si verifica col `git diff` — la riga
+`doc(db, "config", "alerts")` non deve comparire tra le modifiche — e ricontrollando **anche la
+dashboard genitore**, non solo la Control Room.
 
 ## L'id del documento vince sempre sul campo salvato (2026-08-03)
 
