@@ -47,6 +47,7 @@ import { useDailyLogs } from "@/hooks/useDailyLogs";
 import type { DailyLog } from "@/lib/validations/diary";
 import { calcolaStatoFase, faseDiStato, type StatoFase } from "@/lib/utils/fase";
 import { valutaAlertLog } from "@/lib/utils/alert";
+import { conInizialeMaiuscola } from "@/lib/utils/testo";
 import { TIPI_INTERVENTO } from "@/lib/validations/utente";
 import EmptyState from "@/components/EmptyState";
 import UserMenu from "@/components/UserMenu";
@@ -547,7 +548,7 @@ export default function DashboardContent() {
             <div>
               <p className="text-xs font-medium text-slate-500">Bentornato,</p>
               <h1 className="text-lg font-bold leading-tight text-white">
-                {accountProfile?.nome ?? "Genitore"} 👋
+                {conInizialeMaiuscola(accountProfile?.nome) || "Genitore"}
               </h1>
             </div>
             {/*
@@ -577,29 +578,45 @@ export default function DashboardContent() {
 
       {/* ---- HEADER ---- */}
       <header className="sticky top-0 z-30 border-b border-slate-800/50 bg-slate-950/90 px-4 pb-3 pt-4 backdrop-blur-md">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-slate-500">Bentornato,</p>
+        <div className="flex items-center justify-between gap-3">
+          {/*
+            Saluto e selettore sulla stessa riga. Lo switcher stava su una riga
+            propria sotto: spostarlo qui accanto al nome porta l'header da 125px
+            a 75px (misurato a 375, 1024 e 1440 — l'altezza è la stessa alle tre
+            larghezze). L'header è `sticky`, quindi quei 50px li restituisce a
+            ogni schermata della dashboard, non solo in cima.
+
+            `min-w-0` su entrambi i livelli è ciò che permette al nome di
+            troncare invece di spingere fuori lo switcher: senza, un genitore
+            con un nome lungo lo schiaccerebbe contro UserMenu. Lo switcher ha
+            `flex-shrink-0` perché è un controllo, non testo — deve restare
+            cliccabile per intero.
+          */}
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500">Bentornato,</p>
+              {/*
+                Il saluto usa il nome del genitore, come già faceva l'header
+                dello stato vuoto: l'identità del bambino è portata dallo
+                switcher qui accanto, che altrimenti ripeterebbe lo stesso nome
+                a pochi pixel di distanza.
+              */}
+              <h1 className="truncate text-lg font-bold leading-tight text-white">
+                {conInizialeMaiuscola(accountProfile?.nome) || "Genitore"}
+              </h1>
+            </div>
+
             {/*
-              Il saluto usa il nome del genitore, come già faceva l'header dello
-              stato vuoto: l'identità del bambino è ora portata dallo switcher qui
-              sotto, che altrimenti ripeterebbe lo stesso nome a pochi pixel di
-              distanza.
+              Selettore del bambino attivo. Va mostrato a ogni larghezza: senza,
+              un genitore con più figli non ha alcun modo di cambiare paziente.
             */}
-            <h1 className="text-lg font-bold leading-tight text-white">
-              {accountProfile?.nome ?? "Genitore"} 👋
-            </h1>
+            <div className="flex-shrink-0">
+              <UtenteSwitcher />
+            </div>
           </div>
+
           {/* Solo sotto `lg`: vedi la nota nell'header dello stato vuoto. */}
           <UserMenu className="lg:hidden" />
-        </div>
-
-        {/*
-          Selettore del bambino attivo. Va mostrato a ogni larghezza: senza, un
-          genitore con più figli non ha alcun modo di cambiare paziente.
-        */}
-        <div className="mt-3">
-          <UtenteSwitcher />
         </div>
       </header>
 

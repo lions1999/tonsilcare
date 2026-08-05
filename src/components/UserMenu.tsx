@@ -30,6 +30,7 @@ import { LogOut, User, ChevronDown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import BottoneLogout from "@/components/BottoneLogout";
 import { clearRispostaMedicoNonLetta } from "@/lib/firebase/firestore";
+import { conInizialeMaiuscola } from "@/lib/utils/testo";
 import { useChiusuraAlClickFuori } from "@/hooks/useChiusuraAlClickFuori";
 import type { UserRole } from "@/types";
 
@@ -105,8 +106,11 @@ export default function UserMenu({
     ?? user.email?.[0]?.toUpperCase()
     ?? (isMedico ? "M" : "G");
 
+  // Iniziali maiuscole anche se chi si è registrato ha digitato tutto minuscolo:
+  // l'avatar qui sopra lo fa già da sempre con `toUpperCase()`, e senza questa
+  // riga il cerchio direbbe "D" mentre il nome accanto dice "davide".
   const nomeCompleto = accountProfile
-    ? `${accountProfile.nome} ${accountProfile.cognome}`
+    ? `${conInizialeMaiuscola(accountProfile.nome)} ${conInizialeMaiuscola(accountProfile.cognome)}`
     : user.displayName ?? user.email ?? (isMedico ? "Medico" : "Genitore");
   // "Dr." come nell'intestazione della Control Room, che usa la stessa convenzione.
   const nomeDisplay = isMedico ? `Dr. ${nomeCompleto}` : nomeCompleto;

@@ -11,6 +11,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useUtente } from "@/context/UtenteContext";
 import BottoneLogout from "@/components/BottoneLogout";
 import { parseDataLocale } from "@/lib/utils/date";
+import { conInizialeMaiuscola } from "@/lib/utils/testo";
 
 export default function ImpostazioniPage() {
   const router = useRouter();
@@ -55,7 +56,9 @@ export default function ImpostazioniPage() {
               <div>
                 <p className="text-sm font-medium text-slate-400">Nome completo</p>
                 <p className="font-semibold text-white">
-                  {accountProfile ? `${accountProfile.nome} ${accountProfile.cognome}` : (user?.displayName || "Genitore")}
+                  {accountProfile
+                    ? `${conInizialeMaiuscola(accountProfile.nome)} ${conInizialeMaiuscola(accountProfile.cognome)}`
+                    : (user?.displayName || "Genitore")}
                 </p>
               </div>
             </div>
