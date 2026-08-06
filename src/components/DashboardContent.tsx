@@ -47,7 +47,7 @@ import { useDailyLogs } from "@/hooks/useDailyLogs";
 import type { DailyLog } from "@/lib/validations/diary";
 import { calcolaStatoFase, faseDiStato, type StatoFase } from "@/lib/utils/fase";
 import { valutaAlertLog } from "@/lib/utils/alert";
-import { conInizialeMaiuscola } from "@/lib/utils/testo";
+import { conInizialeMaiuscola, haTesto } from "@/lib/utils/testo";
 import { TIPI_INTERVENTO } from "@/lib/validations/utente";
 import EmptyState from "@/components/EmptyState";
 import UserMenu from "@/components/UserMenu";
@@ -436,9 +436,7 @@ function VitalsQuickCard({
  * DEFAULT_ALERTS ce l'ha.
  */
 function AlertBanner({ alerts }: { alerts: MedicalAlerts }) {
-  // `trim()`: una stringa di soli spazi produce lo stesso paragrafo alto zero.
-  const messaggio = alerts.messaggioEmergenza;
-  if (typeof messaggio !== "string" || messaggio.trim() === "") return null;
+  if (!haTesto(alerts.messaggioEmergenza)) return null;
 
   return (
     <aside
@@ -487,9 +485,21 @@ function PrescrizioniCard({ prescrizioni }: { prescrizioni: Prescrizione[] }) {
       <div className="space-y-3">
         {prescrizioni.map((pr) => (
           <div key={pr.id} className="rounded-xl bg-slate-900/60 p-3">
+            {/*
+              Il nome può mancare, la data no (la scrive addPrescrizione), quindi
+              la riga sopravvive sempre. Niente ripiego tipo "Il medico": il testo
+              della prescrizione è contenuto vero ed è quello che il genitore deve
+              leggere — inventare un'attribuzione sarebbe peggio che non darne una.
+
+              `ml-auto` sulla data e non solo `justify-between`: con un figlio
+              solo, `space-between` allinea a SINISTRA, quindi togliendo il nome
+              la data sarebbe scivolata dall'altra parte.
+            */}
             <div className="flex justify-between items-center mb-1">
-              <span className="text-xs font-semibold text-indigo-300">{pr.medicoNome}</span>
-              <span className="text-[10px] text-slate-500">
+              {haTesto(pr.medicoNome) && (
+                <span className="text-xs font-semibold text-indigo-300">{pr.medicoNome}</span>
+              )}
+              <span className="ml-auto text-[10px] text-slate-500">
                 {new Date(pr.timestamp).toLocaleDateString("it-IT", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
@@ -543,8 +553,7 @@ export default function DashboardContent() {
           Qui e non dentro AlertBanner: nella funzione di render il log si
           ripeterebbe a ogni passaggio.
         */
-        const messaggio = data.messaggioEmergenza;
-        if (typeof messaggio !== "string" || messaggio.trim() === "") {
+        if (!haTesto(data.messaggioEmergenza)) {
           console.error(
             "[DashboardContent] /config/alerts esiste ma `messaggioEmergenza` " +
               "manca o è vuoto: il banner di emergenza NON viene mostrato al " +

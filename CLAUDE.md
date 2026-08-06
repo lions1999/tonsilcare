@@ -443,6 +443,48 @@ sparisce il singolo blocco o la card intera, e "Consigliati" con zero chip **un 
 legge come "nessun alimento consigliato"**, che è più grave del banner. Non è un riordino
 tecnico: cambia cosa legge una famiglia.
 
+#### Chiusi il 2026-08-06
+
+Quattro degli otto, tutti con la guardia sul **contenitore** e la condizione unica
+`haTesto()` (`src/lib/utils/testo.ts`), che esiste perché la stessa riga serviva in cinque
+punti e scritta a mano ogni volta sarebbe divergente — stesso motivo di `lib/utils/alert.ts`.
+
+- **`Prescrizione.testo` — scartata alla lettura**, in `getPrescrizioni`. Una card con nome
+  del medico, data e corpo vuoto dice al genitore "il medico ti ha scritto qualcosa" quando
+  non è vero: peggio del non mostrare niente. Filtrare alla lettura copre **entrambe** le
+  schermate, che spariscono già da sole a lista vuota (`PrescrizioniCard` fa `return null`,
+  la scheda paziente gatta su `length > 0`). Se un giorno servirà distinguere "prescrizione
+  vuota" da "nessuna prescrizione", sarà perché qualcuno ha trovato il modo di crearne una, e
+  il problema sarà quello.
+- **`medicoNome` — omesso, senza ripiego.** Il testo della prescrizione è contenuto vero e
+  va letto comunque; inventare un'attribuzione ("Il medico") sarebbe peggio che non darne
+  una. ⚠️ La data ha preso `ml-auto`: `justify-between` **con un figlio solo allinea a
+  sinistra**, quindi senza il nome la data sarebbe scivolata dall'altra parte.
+- **`Guideline` — scartata se manca titolo *o* contenuto**, in `getGuidelines`. Filtrare alla
+  lettura risolve gratis il raggruppamento per categoria di `info/page.tsx`: le categorie
+  nascono da un `reduce` sulla lista, quindi una categoria rimasta vuota **non esiste**
+  invece di comparire come intestazione senza voci. Guardando il render, l'intestazione
+  sarebbe sopravvissuta — il buco spostato di un livello.
+- **`stato.motivo` — riquadro condizionato a `motivo || faseOverrideIl`.** La data da sola
+  basta a tenerlo in piedi. La pillola "Forzata" resta comunque: è l'attribuzione, vera anche
+  senza dettaglio. `space-y-1` ha sostituito `mt-1` sulla data, che senza il motivo si
+  sarebbe staccata da un fratello inesistente.
+
+#### Resta aperto: `ingredienti` / `istruzioni` in `ricette/[id]`
+
+**Non è una guardia, è una domanda di prodotto**, ed è il motivo per cui è stato lasciato
+fuori dal giro dei quattro. Nascondere un tab vuoto **cambia la navigazione della pagina** —
+i due tab sono la sua struttura — e obbliga a spostare `activeTab` se quello attivo è proprio
+quello nascosto.
+
+La domanda da decidere **prima** di scrivere codice:
+
+> **Una ricetta senza ingredienti (o senza preparazione) va ancora elencata in `/ricette`?**
+
+Le due risposte portano a lavori diversi: se sì, serve la gestione dei tab; se no, il filtro
+va in `getRecipes` e la ricetta sparisce dall'elenco, e allora la domanda successiva è cosa
+succede a chi ci arriva con un link diretto. Non sceglierla in corso d'opera.
+
 **Debito di famiglia diversa, trovato di passaggio:** `noteClinicare` (`src/types/index.ts`) è
 dichiarato in `UtenteProfile` e **non è reso da nessuna parte**. Non è questo schema, è quello
 di `oreMaxSenzaAlimentazione`: un campo valorizzabile che non produce nulla. Chi lo scrivesse

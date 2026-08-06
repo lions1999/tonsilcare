@@ -16,6 +16,7 @@ import { useState } from "react";
 import { Activity, Lock, Loader2, RotateCcw } from "lucide-react";
 import { setFaseOverride, clearFaseOverride } from "@/lib/firebase/firestore";
 import { calcolaStatoFase, faseDiStato } from "@/lib/utils/fase";
+import { haTesto } from "@/lib/utils/testo";
 import type { PostOpPhase, PostOpPhaseConfig, UtenteProfile } from "@/types";
 
 interface FasePazienteCardProps {
@@ -130,14 +131,31 @@ export default function FasePazienteCard({
           </span>
         </div>
 
-        {/* Dettaglio del forzamento */}
-        {forzata && (
+        {/*
+          Dettaglio del forzamento.
+
+          Il riquadro compare solo se ha qualcosa dentro. Senza questa guardia,
+          un `faseOverride` senza motivo dava un rettangolo ambra con il
+          lucchetto e nessun testo: sembra un dettaglio che non è riuscito a
+          caricare, non un dettaglio che non c'è.
+
+          La data da sola basta a tenerlo in piedi — "Impostata il …" è
+          informazione vera e utile. È il motivo per cui la condizione guarda
+          entrambi i campi invece del solo motivo.
+
+          La pillola "Forzata" qui sopra resta comunque: quella è
+          l'attribuzione, ed è vera anche senza dettaglio.
+        */}
+        {forzata && (haTesto(stato.motivo) || utente.faseOverrideIl) && (
           <div className="flex items-start gap-2.5 rounded-lg border border-amber-800/40 bg-amber-950/30 px-3 py-2.5">
             <Lock size={13} className="mt-0.5 flex-shrink-0 text-amber-400" />
-            <div className="min-w-0 text-xs">
-              <p className="text-amber-200">{stato.motivo}</p>
+            {/* `space-y-1` invece di `mt-1` sulla data: con `mt-1`, quando il
+                motivo manca la data si sarebbe staccata da un fratello che non
+                c'è. `> * + *` non applica margini al figlio unico. */}
+            <div className="min-w-0 space-y-1 text-xs">
+              {haTesto(stato.motivo) && <p className="text-amber-200">{stato.motivo}</p>}
               {utente.faseOverrideIl && (
-                <p className="mt-1 text-amber-200/60">
+                <p className="text-amber-200/60">
                   Impostata il{" "}
                   {new Date(utente.faseOverrideIl).toLocaleDateString("it-IT", {
                     day: "2-digit",

@@ -4,6 +4,27 @@
  */
 
 /**
+ * Il valore è testo che vale la pena mostrare?
+ *
+ * Esiste perché la stessa condizione serviva in cinque punti, e scritta a mano
+ * ogni volta sarebbe divergente come lo erano le condizioni di allerta prima di
+ * `lib/utils/alert.ts`. Averla in un posto solo la rende anche imitabile: chi
+ * aggiunge una lettura da Firestore trova un esempio invece di reinventarla.
+ *
+ * **`trim()` non è pignoleria.** Una stringa di soli spazi supera qualunque
+ * controllo di verità e produce esattamente il difetto che queste guardie
+ * esistono per evitare: un elemento renderizzato, alto zero, indistinguibile da
+ * un contenuto voluto.
+ *
+ * Va usata sul **contenitore**, non solo sul contenuto: nascondere il testo
+ * lasciando in piedi l'intestazione, la card o la cella di griglia sposta il
+ * buco, non lo toglie.
+ */
+export function haTesto(valore: unknown): valore is string {
+  return typeof valore === "string" && valore.trim() !== "";
+}
+
+/**
  * Restituisce il testo con la prima lettera maiuscola, lasciando intatto il
  * resto.
  *

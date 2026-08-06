@@ -27,6 +27,7 @@ import {
   type DocumentData,
 } from "firebase/firestore";
 import { db } from "./config";
+import { haTesto } from "@/lib/utils/testo";
 import type {
   UtenteProfile,
   PostOpPhase,
@@ -461,6 +462,24 @@ export async function addPrescrizione(
 
 /**
  * Recupera le prescrizioni di un utente, ordinate dalla più recente.
+ *
+ * **Le prescrizioni senza testo vengono scartate.** Una card con nome del medico
+ * e data e corpo vuoto dice al genitore "il medico ti ha scritto qualcosa"
+ * quando non è vero: è peggio del non mostrare niente. Il medico che manda una
+ * prescrizione vuota non ha comunicato nulla, quindi non c'è nulla da mostrare.
+ *
+ * Scartare qui e non nei due punti di render è deliberato: le schermate che le
+ * mostrano sono due (dashboard genitore e scheda paziente) e **entrambe
+ * spariscono da sole** quando la lista resta vuota — `PrescrizioniCard` fa
+ * `return null`, la scheda paziente gatta la sezione su `length > 0`. Una
+ * guardia nel render avrebbe dovuto replicare la stessa decisione due volte.
+ *
+ * Nessun client può produrre questo stato: il form disabilita l'invio e fa
+ * `trim()`. Resta possibile da Console o Admin SDK.
+ *
+ * Se un giorno servirà distinguere "prescrizione vuota" da "nessuna
+ * prescrizione", sarà perché qualcuno ha trovato il modo di crearne una — e il
+ * problema da risolvere sarà quello, non questo filtro.
  */
 export async function getPrescrizioni(utenteId: string): Promise<Prescrizione[]> {
   const q = query(
@@ -468,7 +487,17 @@ export async function getPrescrizioni(utenteId: string): Promise<Prescrizione[]>
     orderBy("timestamp", "desc")
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ ...d.data(), id: d.id })) as Prescrizione[];
+  const tutte = snap.docs.map((d) => ({ ...d.data(), id: d.id })) as Prescrizione[];
+
+  const utili = tutte.filter((p) => haTesto(p.testo));
+  if (utili.length !== tutte.length) {
+    console.error(
+      `[getPrescrizioni] ${tutte.length - utili.length} prescrizioni di ` +
+        `${utenteId} sono senza testo e non vengono mostrate. ` +
+        "Non sono creabili dall'app: verificare chi le ha scritte."
+    );
+  }
+  return utili;
 }
 
 // ---------------------------------------------------------------------------
@@ -503,10 +532,34 @@ export async function getRecipeById(id: string): Promise<Recipe | null> {
 import type { Guideline } from "@/types";
 
 /**
- * Recupera tutte le linee guida da Firestore
+ * Recupera tutte le linee guida da Firestore.
+ *
+ * **Scarta le voci senza titolo o senza contenuto.** Senza contenuto l'accordion
+ * si apre sul vuoto; senza titolo il bottone resta cliccabile con l'icona, il
+ * chevron e nessuna etichetta. Sono lo stesso difetto su due campi, e si chiudono
+ * con la stessa riga: una linea guida a cui manca una delle due metà non è una
+ * linea guida.
+ *
+ * Filtrare qui invece che nel render risolve gratis il raggruppamento per
+ * categoria in `info/page.tsx`: le categorie si costruiscono con un `reduce`
+ * sulla lista, quindi una categoria rimasta senza voci **non esiste** invece di
+ * comparire come intestazione vuota. Guardando solo il render, l'intestazione
+ * sarebbe sopravvissuta — il buco spostato di un livello.
+ *
+ * Quando restano zero voci, la pagina ha già il suo stato vuoto.
  */
 export async function getGuidelines(): Promise<Guideline[]> {
   const q = query(collection(db, "info"));
   const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Guideline[];
+  const tutte = snap.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Guideline[];
+
+  const utili = tutte.filter((g) => haTesto(g.titolo) && haTesto(g.contenuto));
+  if (utili.length !== tutte.length) {
+    console.error(
+      `[getGuidelines] ${tutte.length - utili.length} linee guida su ` +
+        `${tutte.length} sono senza titolo o senza contenuto e non vengono ` +
+        "mostrate. Si corregge con `node scripts/seed.mjs`."
+    );
+  }
+  return utili;
 }

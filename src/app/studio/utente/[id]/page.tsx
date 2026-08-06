@@ -42,6 +42,7 @@ import {
 import { calcolaEta, calcolaBMI } from "@/lib/utils/paziente";
 import { parseDataLocale } from "@/lib/utils/date";
 import { valutaAlertLog } from "@/lib/utils/alert";
+import { haTesto } from "@/lib/utils/testo";
 import FasePazienteCard from "@/components/studio/FasePazienteCard";
 import AvvisoTriageDisattivato from "@/components/studio/AvvisoTriageDisattivato";
 import { TIPI_INTERVENTO } from "@/lib/validations/utente";
@@ -420,9 +421,13 @@ export default function UtenteDettaglioMedico() {
             <div className="space-y-3">
               {prescrizioni.map((pr) => (
                 <div key={pr.id} className="rounded-xl border border-indigo-900/30 bg-indigo-950/20 p-4">
+                  {/* Vedi la stessa riga in DashboardContent: `ml-auto` perché
+                      `justify-between` con un figlio solo allinea a sinistra. */}
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-semibold text-indigo-300">{pr.medicoNome}</span>
-                    <span className="text-[10px] text-slate-500">
+                    {haTesto(pr.medicoNome) && (
+                      <span className="text-xs font-semibold text-indigo-300">{pr.medicoNome}</span>
+                    )}
+                    <span className="ml-auto text-[10px] text-slate-500">
                       {new Date(pr.timestamp).toLocaleDateString("it-IT", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
