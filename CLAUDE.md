@@ -681,6 +681,33 @@ ovunque, non solo in Control Room. Il ripristino si verifica col `git diff` — 
 `doc(db, "config", "alerts")` non deve comparire tra le modifiche — e ricontrollando **anche la
 dashboard genitore**, non solo la Control Room.
 
+### Simulare più campi in un giro solo: due trappole (2026-08-06)
+
+Misurando quattro guardie diverse conviene **una simulazione sola invece di quattro**: meno
+cicli, e soprattutto **un solo marcatore da cercare al ripristino**. Nel caso reale tutte le
+letture coinvolte (`getPrescrizioni`, `getGuidelines`, `getUtente`, `getAllUtenti`) vivevano in
+`src/lib/firebase/firestore.ts`, quindi l'intera simulazione stava in un file e
+`grep TEMP-VERIFICA src/lib/firebase/firestore.ts` era il controllo. Due cose però si
+riscoprono da capo se non sono scritte:
+
+- **Svuotare lo stesso campo su tutti i record nasconde metà dei casi.** Se ogni prescrizione
+  perde `testo`, vengono scartate tutte e il caso "resa **senza** un altro campo" non compare
+  mai a schermo — si misura una guardia sola credendo di averne misurate due. Vanno svuotati
+  **campi diversi su indici diversi**: indice 0 senza `testo`, indice 1 senza `medicoNome`, e
+  un indice completo come controllo.
+- **La scheda paziente usa `getUtente`, non il context.** `/studio/utente/[id]` carica il
+  paziente con la propria `getUtente(id)` dentro un `Promise.all`; `StudioPazientiContext`
+  serve la **lista**. Una simulazione applicata solo a `getAllUtenti` **non tocca la scheda**,
+  e il sintomo è ingannevole: la pagina si apre normalmente e mostra "Automatica", cioè
+  sembra che la guardia funzioni quando semplicemente non è stata esercitata. Vale in generale
+  — prima di misurare, verificare **da quale lettura** arriva davvero il dato su quella
+  schermata.
+
+Terza nota pratica: quando su dev **non esiste il dato** per esercitare un caso (nessuna
+prescrizione sul paziente attivo), conviene **iniettare i record nella lettura** invece di
+scriverli su Firestore. Stessa fedeltà per ciò che si sta misurando, e niente da ripulire
+dopo — coerente col principio di non lasciare residui su `tonsilcare-dev`.
+
 ## L'id del documento vince sempre sul campo salvato (2026-08-03)
 
 Tutte le letture in `src/lib/firebase/firestore.ts` costruiscono l'oggetto come
