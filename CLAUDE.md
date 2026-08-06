@@ -352,14 +352,6 @@ in attesa di tempo ma **di una decisione clinica del cliente**.
   allarme a schermo. Va posto insieme alle soglie sui trend e alla domanda per il nutrizionista,
   non risolto di passaggio. Nota che scatta anche con `?? 38.5` scritto a mano, quindi in un
   ambiente senza `/config/alerts` allarma con una soglia che nessuno ha configurato.
-- **Un `messaggioEmergenza` mancante svuota il banner del genitore senza che si veda**
-  (scoperto il 2026-08-06 validando le soglie). Misurato: il banner **non** sparisce, resta con
-  il titolo "Temperatura max: 38.5 °C" e un secondo paragrafo di altezza **zero** — si presenta
-  come un banner completo e intenzionale mentre le istruzioni su cosa fare in emergenza non ci
-  sono. Non è coperto dalla validazione di `getMedicalAlerts`, e di proposito: è testo per il
-  genitore, non una soglia, e invalidare tutta la configurazione spegnerebbe il triage del
-  medico per una stringa che il medico non vede. Piccolo, ma da risolvere dove vive il banner
-  (`AlertBanner` in `DashboardContent.tsx`), non nella lettura.
 
 **Corretto il 2026-08-05: `VitalsQuickCard`.** I due riquadri "Temp." e "Dolore" della
 dashboard genitore confrontavano con `38` e `7` letterali, ignorando `/config/alerts` che la
@@ -389,6 +381,72 @@ Attenzione a una distinzione che quella correzione ha reso più netta: `DEFAULT_
 avrebbe niente da mostrare. Non va passato a ciò che valuta le soglie, altrimenti il fallback
 hardcoded torna, solo spostato. È il motivo per cui la configurazione vera vive in uno stato
 separato (`configAlert`, che può essere `null`) e il banner riceve `configAlert ?? DEFAULT_ALERTS`.
+
+**Corretto il 2026-08-06: `messaggioEmergenza` mancante.** Il banner **non** spariva e **non**
+mostrava un buco: restava col titolo "Temperatura max: 38.5 °C" e un secondo paragrafo di
+altezza **zero**, cioè si presentava come un banner completo e voluto mentre le istruzioni su
+cosa fare in emergenza non c'erano. Un banner visibilmente rotto verrebbe segnalato, quello no.
+Il caso si presenta con `/config/alerts` **presente** e soglie valide, quindi `configAlert` è
+non-null e `DEFAULT_ALERTS` non entra in gioco.
+
+**Oggi il banner non compare affatto.** Nessun testo di ripiego, e la ragione va tenuta:
+
+- **Un ripiego sarebbe un fallback hardcoded travestito, peggiore di quelli già rimossi.**
+  `DEFAULT_ALERTS` scatta solo quando manca l'intera configurazione; un `||` sul singolo campo
+  scatterebbe in un ambiente **configurato**, coprendo una configurazione incompleta e reale
+  con un'istruzione clinica che nessuno ha deciso.
+- **Il titolo da solo non basta a giustificare il banner.** È un'unità di senso sola: la soglia
+  è la premessa, il messaggio è la conclusione. Un "Temperatura max: 38.5 °C" isolato invita il
+  genitore a dedurre un'azione che nessuno ha scritto — informazione monca su una soglia
+  clinica.
+- **Il percorso acuto non è toccato:** il modale in `diario/nuovo` ha un suo testo con ripiego
+  e scatta mentre il genitore digita un valore fuori soglia. Questo banner è ambientale.
+
+⚠️ **Compromesso accettato, non dimenticato: per il genitore l'assenza è invisibile** — niente
+banner e niente avviso. È deliberato: l'alternativa è dirgli un'istruzione clinica non
+configurata, e un errore di configurazione lui non può risolverlo (stessa regola per cui
+`AvvisoTriageDisattivato` è solo lato medico). Il segnale va a chi può correggere, con un
+`console.error` che nomina il campo — nel `useEffect`, non nella funzione di render, dove si
+ripeterebbe a ogni passaggio.
+
+Dettaglio di layout che non si deduce: **`lg:col-span-2` sta sull'`<aside>` dentro
+`AlertBanner`, non su un wrapper**. Con un wrapper, il `null` avrebbe lasciato un figlio vuoto
+— una cella di griglia con la sua riga di gap a `lg`, e un elemento in più contato da
+`space-y-4` sotto. È lo stesso difetto dell'avviso dentro `<main class="space-y-8">` della
+scheda paziente.
+
+### Lo stesso schema altrove: otto punti, censiti il 2026-08-06
+
+Campi di testo letti da Firestore e resi **senza controllo**, dove l'assenza produce un
+elemento vuoto invece di un'assenza visibile. Tutti hanno la stessa raggiungibilità del
+banner: non producibili dal client (`/fasi`, `/ricette`, `/info` sono `write: if false`;
+`Prescrizione.testo` e il motivo dell'override sono validati in scrittura, bottone disabilitato
+più `trim()`), ma producibili da Console o Admin SDK.
+
+| dove | campo | cosa si vede se manca |
+|---|---|---|
+| `DashboardContent.tsx` | `cibiConsigliati` / `cibiVietati` | l'intestazione "✅ Consigliati" resta, sotto nessun chip |
+| `DashboardContent.tsx` | `consistenzaSuggerita` | etichetta penzolante "Consistenza:" e il nulla |
+| `DashboardContent.tsx` | `fase.descrizione` | paragrafo vuoto nella card della fase |
+| `DashboardContent.tsx`, `studio/utente/[id]` | `Prescrizione.testo` | card con nome del medico e data, corpo vuoto |
+| `DashboardContent.tsx`, `studio/utente/[id]` | `medicoNome` | attribuzione con la data e senza nome |
+| `info/page.tsx` | `Guideline.contenuto` | l'accordion si apre sul vuoto |
+| `ricette/[id]/page.tsx` | `ingredienti` / `istruzioni` | il tab esiste, il suo contenuto no |
+| `studio/FasePazienteCard.tsx` | `stato.motivo` | riquadro ambra col lucchetto e nessun testo |
+
+**Il precedente giusto è già nel repo:** `studio/utente/[id]/page.tsx` controlla `length`
+**prima** di rendere l'intestazione di allergie e patologie. La guardia va sul **contenitore**,
+non sul contenuto — è la differenza tra un'assenza e un buco.
+
+I primi tre sono il **piano alimentare**, e vanno per un giro dedicato: lì va deciso se
+sparisce il singolo blocco o la card intera, e "Consigliati" con zero chip **un genitore lo
+legge come "nessun alimento consigliato"**, che è più grave del banner. Non è un riordino
+tecnico: cambia cosa legge una famiglia.
+
+**Debito di famiglia diversa, trovato di passaggio:** `noteClinicare` (`src/types/index.ts`) è
+dichiarato in `UtenteProfile` e **non è reso da nessuna parte**. Non è questo schema, è quello
+di `oreMaxSenzaAlimentazione`: un campo valorizzabile che non produce nulla. Chi lo scrivesse
+da Console crederebbe di aver annotato qualcosa che nessuno leggerà mai.
 
 ### Limiti di scala — corretti oggi, rotti domani
 
@@ -559,11 +617,12 @@ Console o Admin SDK sì.
 
 **`messaggioEmergenza` non è validato, di proposito**: è testo per il banner del genitore, non
 una soglia, e spegnere il triage del medico per una stringa che il medico non vede sarebbe
-sproporzionato. Cosa succede davvero se manca, misurato e non dedotto: il banner del genitore
-**non sparisce** — resta con il titolo "Temperatura max: 38.5 °C" e un secondo paragrafo di
-altezza **zero**, quindi si presenta come un banner completo e intenzionale mentre le istruzioni
-su cosa fare in emergenza non ci sono. Niente lo segnala. È un debito aperto a sé, minore ma non
-innocuo proprio perché invisibile.
+sproporzionato. **Non spostare quel controllo qui**: renderebbe `null` l'intera configurazione,
+cioè spegnerebbe il triage del medico per una stringa che riguarda solo il genitore.
+
+La sua assenza è gestita dove vive il banner: dal 2026-08-06 `AlertBanner` **non compare
+affatto** invece di restare col titolo e un paragrafo di altezza zero. Il perché di quella
+scelta — e perché non un testo di ripiego — sta nella sezione sui debiti aperti.
 
 ### Come simulare l'assenza senza cancellare `/config/alerts`
 
@@ -696,6 +755,44 @@ Le vie d'uscita, per intero: barra desktop (entrambi i ruoli, ogni pagina), head
 dashboard sotto `lg` (solo genitore), pagina `/impostazioni`, schermata "profilo non
 disponibile". Tutte passano da `BottoneLogout`.
 
+### Il selettore paziente sta accanto al nome, non su una riga sua (2026-08-06)
+
+`UtenteSwitcher` stava su una **riga propria** sotto il saluto, nell'header della dashboard
+genitore. Oggi sta sulla stessa riga del nome. Non è un ritocco estetico: **l'header è
+`sticky`**, quindi la sua altezza è tolta al contenuto su tutta la dashboard, non solo in cima.
+
+**Misurato: da 125px a 75px**, identico a 375, 1024 e 1440 — l'altezza dell'header non dipende
+dalla larghezza, quindi i 50px tornano indietro a ogni schermata e a ogni larghezza.
+
+Le tre classi che lo tengono in piedi, tutte necessarie:
+
+- **`min-w-0` su entrambi i livelli** del contenitore flex (la riga e il blocco saluto+nome).
+  È ciò che permette al nome di **troncare** invece di spingere fuori il selettore: un elemento
+  flex ha `min-width: auto` di default e si rifiuta di rimpicciolirsi sotto il proprio
+  contenuto. Su uno solo dei due livelli non basta.
+- **`truncate` sul nome** — il nome è testo, ed è la cosa giusta da tagliare.
+- **`flex-shrink-0` sul selettore** — è un **controllo**, non testo: schiacciato resta a
+  schermo ma smette di essere cliccabile per intero.
+
+Provato con un nome lungo a 375px: il nome tronca, il selettore **resta intero a 148px**,
+nessuna sovrapposizione con `UserMenu` e nessun overflow di pagina. Senza `min-w-0`, un
+genitore con un nome lungo schiaccia il selettore contro `UserMenu`.
+
+**Perché questa sezione esiste:** il selettore su una riga propria è la disposizione più ovvia
+da scrivere, e chi la rimettesse oggi non troverebbe **da nessuna parte** il motivo per cui era
+stata tolta — la misura viveva solo nel messaggio di commit `0211b6c`. Il costo non si vede
+guardando l'header: si vede in fondo alla pagina, dove mancano 50px di contenuto a ogni
+scorrimento.
+
+Due dettagli decisi nello stesso passaggio, per non riaprirli:
+
+- **Il saluto usa il nome del genitore, non quello del bambino.** L'identità del bambino la
+  porta il selettore lì accanto: metterla anche nel saluto ripeterebbe lo stesso nome a pochi
+  pixel di distanza.
+- **Il selettore si vede a ogni larghezza**, senza `lg:hidden` e senza condizioni. Nasconderlo
+  toglie a un genitore con più figli l'unico modo di cambiare paziente — stessa famiglia di
+  errore descritta per `UserMenu` qui sopra.
+
 ## `backdrop-blur` sull'header rompe i figli `position: fixed` (2026-08-03)
 
 Gli header di questo progetto usano `backdrop-blur-xl`. `backdrop-filter` (come `transform`,
@@ -744,9 +841,11 @@ romperebbe senza che nessuno tocchi quel file. L'hook accetta **più ref** propr
 cui trigger e menu non condividano un antenato (menu in un portale): senza il ref del bottone,
 premerlo per chiudere lo chiuderebbe e riaprirebbe nello stesso gesto.
 
-### Censimento al 2026-08-06: dove sta ancora `fixed inset-0`
+### Censimento al 2026-08-06: `fixed inset-0` non chiude più nessun dropdown
 
-Cercato in tutto `src/`. Quattro occorrenze, **nessuna rotta oggi**, ma due meritano attenzione:
+Cercato in tutto `src/`. Ne restano **due**, entrambe sfondi e nessuna delle due rotta; le
+altre due erano overlay di chiusura e sono state migrate all'hook. Delle due rimaste, una
+merita attenzione:
 
 | dove | cos'era | stato |
 |---|---|---|

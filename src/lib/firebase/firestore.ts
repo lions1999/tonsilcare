@@ -214,6 +214,12 @@ export async function deleteUtente(utenteId: string): Promise<void> {
  * genitore, non una soglia, e spegnere il triage del medico per una stringa che
  * il medico non vede sarebbe sproporzionato.
  *
+ * La sua assenza è gestita dove vive il banner: `AlertBanner` in
+ * DashboardContent non compare affatto, invece di restare col titolo e un
+ * paragrafo di altezza zero. Non spostare quel controllo qui: renderebbe
+ * `null` l'intera configurazione, cioè spegnerebbe il triage del medico per una
+ * stringa che riguarda solo il genitore.
+ *
  * Nessun client può produrre questo stato — /config è `write: if false` — ma
  * una modifica da Console o Admin SDK sì.
  */

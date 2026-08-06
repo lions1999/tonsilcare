@@ -65,6 +65,12 @@ import { getPrescrizioni } from "@/lib/firebase/firestore";
 // resta un debito noto — su un ambiente non configurato il banner annuncia 38.5
 // e il messaggio di emergenza come se qualcuno li avesse decisi, mentre il lato
 // medico tace del tutto (vedi CLAUDE.md).
+//
+// Copre solo il caso "/config/alerts assente". Il caso diverso — documento
+// presente, soglie valide, `messaggioEmergenza` mancante — non passa di qui:
+// `configAlert` è non-null, e lo gestisce AlertBanner non comparendo affatto.
+// Non aggiungere un `||` sul singolo campo per "completare" questo ripiego:
+// scatterebbe in un ambiente configurato, che è il caso in cui mentire costa.
 // ---------------------------------------------------------------------------
 
 const DEFAULT_ALERTS: MedicalAlerts = {
@@ -399,13 +405,53 @@ function VitalsQuickCard({
   );
 }
 
-/** Banner Alert Medico */
+/**
+ * Banner Alert Medico — la soglia e cosa fare se viene superata.
+ *
+ * Senza il messaggio il banner NON compare. Non è una guardia difensiva di
+ * routine: prima restava a schermo col titolo "Temperatura max: 38.5 °C" e un
+ * secondo paragrafo di altezza ZERO, cioè si presentava come un banner completo
+ * e voluto mentre le istruzioni su cosa fare in emergenza non c'erano. Un
+ * banner visibilmente rotto verrebbe segnalato, quello no.
+ *
+ * Perché niente testo di ripiego: il ripiego scatterebbe in un ambiente
+ * CONFIGURATO (`getMedicalAlerts` valida solo le due soglie, quindi con il testo
+ * mancante restituisce comunque l'oggetto e DEFAULT_ALERTS non entra in gioco),
+ * coprendo una configurazione incompleta e reale con un'istruzione clinica che
+ * nessuno ha deciso. È la stessa "configurazione che mente" tolta da
+ * VitalsQuickCard il 2026-08-05, e sarebbe peggiore: DEFAULT_ALERTS almeno
+ * scatta solo quando manca tutto.
+ *
+ * Perché non basta togliere il paragrafo e tenere il titolo: il banner è una
+ * singola unità di senso — la soglia è la premessa, il messaggio è la
+ * conclusione. Un "Temperatura max: 38.5 °C" isolato invita il genitore a
+ * dedurre un'azione che nessuno ha scritto.
+ *
+ * Cosa NON si perde: il modale di emergenza in `diario/nuovo` ha un suo testo
+ * con ripiego e scatta nel momento che conta, mentre il genitore sta digitando
+ * un valore fuori soglia. Questo banner è ambientale.
+ *
+ * Il titolo non ha bisogno di guardia: `getMedicalAlerts` garantisce
+ * `temperaturaMaxC` numerico finito quando non restituisce null, e
+ * DEFAULT_ALERTS ce l'ha.
+ */
 function AlertBanner({ alerts }: { alerts: MedicalAlerts }) {
+  // `trim()`: una stringa di soli spazi produce lo stesso paragrafo alto zero.
+  const messaggio = alerts.messaggioEmergenza;
+  if (typeof messaggio !== "string" || messaggio.trim() === "") return null;
+
   return (
     <aside
       aria-label="Avviso medico importante"
       role="note"
-      className="flex items-start gap-3 rounded-xl border border-amber-700/40 bg-amber-950/50 p-3.5 animate-fade-in-up"
+      /*
+        `lg:col-span-2` sta qui e non su un wrapper nel layout: un wrapper
+        resterebbe come figlio VUOTO quando questo componente restituisce null
+        — una cella di griglia con la sua riga di gap a `lg`, e un elemento in
+        più contato da `space-y-4` sotto. Stesso difetto dell'avviso dentro
+        `<main class="space-y-8">` della scheda paziente (vedi CLAUDE.md).
+      */
+      className="flex items-start gap-3 rounded-xl border border-amber-700/40 bg-amber-950/50 p-3.5 animate-fade-in-up lg:col-span-2"
     >
       <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-amber-400" />
       <div>
@@ -483,7 +529,30 @@ export default function DashboardContent() {
   useEffect(() => {
     getMedicalAlerts()
       .then((data) => {
-        if (data) setConfigAlert(data);
+        if (!data) return;
+        setConfigAlert(data);
+
+        /*
+          Il segnale va a chi può correggere. Per il genitore l'assenza del
+          messaggio resta invisibile — niente banner e niente avviso — ed è
+          accettato: l'alternativa è mostrargli un'istruzione clinica che
+          nessuno ha configurato, e un errore di configurazione lui non può
+          risolverlo (stessa regola per cui AvvisoTriageDisattivato è solo lato
+          medico).
+
+          Qui e non dentro AlertBanner: nella funzione di render il log si
+          ripeterebbe a ogni passaggio.
+        */
+        const messaggio = data.messaggioEmergenza;
+        if (typeof messaggio !== "string" || messaggio.trim() === "") {
+          console.error(
+            "[DashboardContent] /config/alerts esiste ma `messaggioEmergenza` " +
+              "manca o è vuoto: il banner di emergenza NON viene mostrato al " +
+              "genitore. Le soglie restano valide, quindi il triage del medico " +
+              "non è toccato. Si corregge con `node scripts/seed.mjs`.",
+            data
+          );
+        }
       })
       .catch(() => {
         // Nessuna soglia: i riquadri restano neutri, il banner usa il ripiego.
@@ -637,10 +706,9 @@ export default function DashboardContent() {
       */}
       <div className="space-y-4 px-4 py-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5 lg:space-y-0">
 
-        {/* Banner Alert Medico */}
-        <div className="lg:col-span-2">
-          <AlertBanner alerts={configAlert ?? DEFAULT_ALERTS} />
-        </div>
+        {/* Banner Alert Medico — porta `lg:col-span-2` da sé, così quando non
+            compare non lascia dietro una cella vuota. */}
+        <AlertBanner alerts={configAlert ?? DEFAULT_ALERTS} />
 
         {/* Colonna sinistra: stato clinico del bambino */}
         <div className="space-y-4">
