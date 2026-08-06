@@ -438,10 +438,10 @@ più `trim()`), ma producibili da Console o Admin SDK.
 **prima** di rendere l'intestazione di allergie e patologie. La guardia va sul **contenitore**,
 non sul contenuto — è la differenza tra un'assenza e un buco.
 
-I primi tre sono il **piano alimentare**, e vanno per un giro dedicato: lì va deciso se
-sparisce il singolo blocco o la card intera, e "Consigliati" con zero chip **un genitore lo
-legge come "nessun alimento consigliato"**, che è più grave del banner. Non è un riordino
-tecnico: cambia cosa legge una famiglia.
+I primi tre sono il **piano alimentare** e vanno per un giro dedicato: "Consigliati" con zero
+chip **un genitore lo legge come "nessun alimento consigliato"**, che è più grave del banner.
+Non è un riordino tecnico: cambia cosa legge una famiglia. L'analisi dei dati che serve per
+progettarlo è più sotto.
 
 #### Chiusi il 2026-08-06
 
@@ -469,6 +469,55 @@ punti e scritta a mano ogni volta sarebbe divergente — stesso motivo di `lib/u
   basta a tenerlo in piedi. La pillola "Forzata" resta comunque: è l'attribuzione, vera anche
   senza dettaglio. `space-y-1` ha sostituito `mt-1` sulla data, che senza il motivo si
   sarebbe staccata da un fratello inesistente.
+
+#### Resta aperto: il piano alimentare (`fase.*`) — analisi dei dati, 2026-08-06
+
+**Non progettarlo prima di aver letto questo.** L'analisi è già stata fatta sui dati veri e la
+conclusione è controintuitiva: i due blocchi "Consigliati" e "Vietati" sono **gemelli
+graficamente e opposti nella sostanza**.
+
+Stato di `seed-data/fasi.json` (e di `FASI_FALLBACK` in `useFasi.ts`, che coincide voce per
+voce — i due posti sono ancora allineati):
+
+| fase | consigliati | vietati | consigli |
+|---|---|---|---|
+| fase_1 | 4 | 4 | 3 |
+| fase_2 | 5 | 4 | 3 |
+| fase_3 | 5 | 4 | 3 |
+| fase_4 | 5 | 4 | 3 |
+| fase_5 | 3 | **1** | 3 |
+
+`titolo`, `descrizione` e `consistenzaSuggerita` sono popolati in tutte e cinque. **Oggi
+nessuna lista è mai vuota**, quindi allo stato attuale vuoto = dati rotti. Ma le due liste
+hanno futuri diversi:
+
+- **`cibiConsigliati` e `consigli` vuoti = difetto di dati, sempre.** Una fase il cui scopo è
+  dire a un genitore cosa dare da mangiare non può legittimamente non dire niente.
+  ⚠️ **La prova sta nei dati, non è un'ipotesi:** la Fase 5 non va a zero nemmeno lì dove
+  potrebbe — usa il jolly **`"Tutti gli alimenti tollerati"`**. Quella stringa è la traccia di
+  chi ha scritto i dati e ha già sentito la pressione del caso vuoto, aggirandolo con una
+  frase invece di lasciare la lista vuota.
+- **`cibiVietati` vuoto è uno stato plausibile e informativo.** La colonna fa 4, 4, 4, 4,
+  **1**: la Fase 5 ha un solo alimento vietato, ed è a sua volta una formula di copertura
+  (`"Cibi estremi (molto piccanti o molto duri)"`). È a una decisione editoriale dal diventare
+  vuoto. Quando succederà, **"non c'è più niente da evitare" è la buona notizia di quella
+  fase**: va detta con un **testo esplicito**, non facendo sparire il blocco. Un blocco assente
+  è indistinguibile dall'essercelo dimenticati — lo stesso difetto che queste guardie esistono
+  per chiudere.
+
+⚠️ **Conseguenza da non erodere: i due blocchi devono comportarsi in modo opposto pur essendo
+identici a schermo, a due centimetri di distanza.** Va scritto nel codice *perché* sono
+diversi, altrimenti al primo refactor qualcuno li uniforma "per coerenza" e reintroduce
+esattamente il problema — nella direzione peggiore, perché la simmetria sembra un
+miglioramento.
+
+**Il piano va fatto DOPO la risposta del cliente sulle 4-vs-5 fasi.** Un riseed riscrive
+`seed-data/fasi.json`, cioè proprio i dati su cui poggia tutta l'analisi qui sopra: i conteggi,
+il jolly della Fase 5 e la traiettoria di `cibiVietati` potrebbero non valere più. Non
+modellare la guardia su questi numeri specifici prima di sapere se le fasi restano cinque.
+
+Nota finale: il testo per il caso "niente da evitare" è **copy rivolto a un genitore**, quindi
+ricade nella famiglia delle decisioni da concordare, non da scegliere di passaggio.
 
 #### Resta aperto: `ingredienti` / `istruzioni` in `ricette/[id]`
 
